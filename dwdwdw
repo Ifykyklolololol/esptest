@@ -1,10 +1,21 @@
 --[[
-    Advanced Roblox ESP Library with Direct Object Targeting
+    Advanced Roblox ESP Library
     Features:
-    - All previous ESP features
-    - Direct syntax: game.workspace.object:ESP.Box
-    - Support for any instance type
-    - Customizable per-object settings
+    - Box ESP, Name Tags, Distance, Health Bar, Tracers, Chams, Skeleton ESP, Head Dot
+    - Team Check, Visibility Check, Toggle for each element
+    - Max Distance Setting, Whitelist/Blacklist Players
+    - Custom Colors, Rainbow Mode, Transparency/Thickness Control
+    - Tool ESP, State Display, AimPoint, Hitbox Markers
+    - Dropped Items ESP, Vehicle ESP, Objective ESP, Camera ESP
+    - 3D Boxes, Corner Box ESP, Filled Box ESP, Rounded Box ESP, Gradient Box ESP
+    - Outlined Text, Text Size, Font Style
+    - Multiple Tracer Options (Bottom, Center, Mouse)
+    - Vertical/Horizontal Health Bar with customization
+    - Team Color Mode, Enemy Color Override
+    - Toggle Keybinds, Fade ESP With Distance
+    - Highlight Mode (Outline/Fill), Always On Top
+    - Refresh Rate, ZIndex Control, Visibility Fade
+    - And many more customization options
 ]]
 
 -- Services
@@ -776,6 +787,7 @@ function ESP:CreatePlayerESP(player)
     end
     
     self.Players[player] = playerData
+    return playerData
 end
 
 function ESP:RemovePlayerESP(player)
@@ -803,6 +815,442 @@ function ESP:RemovePlayerESP(player)
         end
         
         self.Players[player] = nil
+    end
+end
+
+function ESP:UpdatePlayerESP(player)
+    local playerData = self.Players[player]
+    if not playerData then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = FindFirstChild(character, "Humanoid")
+    local hrp = FindFirstChild(character, "HumanoidRootPart")
+    local head = FindFirstChild(character, "Head")
+    
+    if not (humanoid and hrp and head) then return end
+    
+    -- Check if player should be rendered
+    if self.Settings.IgnoreDead and humanoid.Health <= 0 then return end
+    if self.Settings.IgnoreInvisible and character.Transparency >= 0.9 then return end
+    if self:IsBlacklisted(player) then return end
+    if self.Settings.Whitelist and #self.Settings.Whitelist > 0 and not self:IsWhitelisted(player) then return end
+    if self:IsFriend(player) then return end
+    
+    -- Get player position and check distance
+    local position = hrp.Position
+    local distance = self:GetDistance(position)
+    
+    if distance > self.Settings.MaxDistance then
+        for _, drawing in pairs(playerData.Drawings) do
+            if type(drawing) == "table" then
+                if drawing.Line then
+                    drawing.Line.Visible = false
+                    drawing.Outline.Visible = false
+                else
+                    for _, subDrawing in pairs(drawing) do
+                        if type(subDrawing) == "table" then
+                            subDrawing.Line.Visible = false
+                            subDrawing.Outline.Visible = false
+                        else
+                            subDrawing.Visible = false
+                        end
+                    end
+                end
+            else
+                drawing.Visible = false
+            end
+        end
+        return
+    end
+    
+    -- Check visibility
+    local isVisible = self:IsVisible(character, head)
+    local transparency = self:CalculateTransparency(distance)
+    if self.Settings.VisibilityFade and not isVisible then
+        transparency = transparency * 0.5
+    end
+    
+    -- Get player color
+    local color = self:GetPlayerColor(player)
+    
+    -- Update box ESP
+    if self.Settings.BoxEnabled then
+        local boxCorners = self:GetBoxCorners(character)
+        
+        if boxCorners then
+            local topLeft = boxCorners.TopLeft
+            local bottomRight = boxCorners.BottomRight
+            local boxSize = bottomRight - topLeft
+            
+            playerData.Drawings.Box.Position = topLeft
+            playerData.Drawings.Box.Size = boxSize
+            playerData.Drawings.Box.Color = color
+            playerData.Drawings.Box.Transparency = transparency * self.Settings.BoxTransparency
+            playerData.Drawings.Box.Visible = true
+            
+            if self.Settings.BoxOutline then
+                playerData.Drawings.BoxOutline.Position = topLeft
+                playerData.Drawings.BoxOutline.Size = boxSize
+                playerData.Drawings.BoxOutline.Transparency = transparency * self.Settings.BoxOutlineTransparency
+                playerData.Drawings.BoxOutline.Visible = true
+            else
+                playerData.Drawings.BoxOutline.Visible = false
+            end
+            
+            if self.Settings.BoxFilled then
+                playerData.Drawings.BoxFill.Position = topLeft
+                playerData.Drawings.BoxFill.Size = boxSize
+                playerData.Drawings.BoxFill.Color = color
+                playerData.Drawings.BoxFill.Transparency = transparency * self.Settings.BoxFilledTransparency
+                playerData.Drawings.BoxFill.Visible = true
+            else
+                playerData.Drawings.BoxFill.Visible = false
+            end
+        else
+            playerData.Drawings.Box.Visible = false
+            playerData.Drawings.BoxOutline.Visible = false
+            playerData.Drawings.BoxFill.Visible = false
+        end
+    else
+        playerData.Drawings.Box.Visible = false
+        playerData.Drawings.BoxOutline.Visible = false
+        playerData.Drawings.BoxFill.Visible = false
+    end
+    
+    -- Update name ESP
+    if self.Settings.NameEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        
+        if onScreen then
+            local displayName = self.Settings.UseDisplayName and player.DisplayName or player.Name
+            local textSize = self:CalculateTextSize(distance)
+            
+            playerData.Drawings.Name.Position = headPos + self.Settings.NameOffset
+            playerData.Drawings.Name.Text = displayName
+            playerData.Drawings.Name.Color = color
+            playerData.Drawings.Name.Transparency = transparency * self.Settings.NameTransparency
+            playerData.Drawings.Name.Size = textSize
+            playerData.Drawings.Name.Visible = true
+        else
+            playerData.Drawings.Name.Visible = false
+        end
+    else
+        playerData.Drawings.Name.Visible = false
+    end
+    
+    -- Update distance ESP
+    if self.Settings.DistanceEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        
+        if onScreen then
+            local distanceText = self:GetDistanceText(distance)
+            local textSize = self:CalculateTextSize(distance)
+            
+            playerData.Drawings.Distance.Position = headPos + self.Settings.DistanceOffset
+            playerData.Drawings.Distance.Text = distanceText
+            playerData.Drawings.Distance.Color = color
+            playerData.Drawings.Distance.Transparency = transparency * self.Settings.DistanceTransparency
+            playerData.Drawings.Distance.Size = textSize
+            playerData.Drawings.Distance.Visible = true
+        else
+            playerData.Drawings.Distance.Visible = false
+        end
+    else
+        playerData.Drawings.Distance.Visible = false
+    end
+    
+    -- Update health ESP
+    if self.Settings.HealthEnabled then
+        local boxCorners = self:GetBoxCorners(character)
+        
+        if boxCorners and humanoid then
+            local topLeft = boxCorners.TopLeft
+            local bottomRight = boxCorners.BottomRight
+            local boxSize = bottomRight - topLeft
+            
+            local healthPercent = mathclamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+            local healthColor = Color3fromRGB(
+                255 * (1 - healthPercent),
+                255 * healthPercent,
+                0
+            )
+            
+            if self.Settings.HealthType == "Vertical" then
+                local barHeight = boxSize.Y * healthPercent
+                local barWidth = self.Settings.HealthBarThickness
+                
+                playerData.Drawings.HealthBar.Position = Vector2new(
+                    topLeft.X + self.Settings.HealthOffset.X - barWidth,
+                    bottomRight.Y - barHeight
+                )
+                playerData.Drawings.HealthBar.Size = Vector2new(barWidth, barHeight)
+                
+                playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                    topLeft.X + self.Settings.HealthOffset.X - barWidth,
+                    topLeft.Y
+                )
+                playerData.Drawings.HealthBarOutline.Size = Vector2new(barWidth, boxSize.Y)
+            else -- Horizontal
+                local barWidth = boxSize.X * healthPercent
+                local barHeight = self.Settings.HealthBarThickness
+                
+                playerData.Drawings.HealthBar.Position = Vector2new(
+                    topLeft.X,
+                    bottomRight.Y + self.Settings.HealthOffset.Y
+                )
+                playerData.Drawings.HealthBar.Size = Vector2new(barWidth, barHeight)
+                
+                playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                    topLeft.X,
+                    bottomRight.Y + self.Settings.HealthOffset.Y
+                )
+                playerData.Drawings.HealthBarOutline.Size = Vector2new(boxSize.X, barHeight)
+            end
+            
+            playerData.Drawings.HealthBar.Color = healthColor
+            playerData.Drawings.HealthBar.Transparency = transparency * self.Settings.HealthTransparency
+            playerData.Drawings.HealthBar.Visible = true
+            
+            if self.Settings.HealthOutline then
+                playerData.Drawings.HealthBarOutline.Transparency = transparency * self.Settings.HealthOutlineTransparency
+                playerData.Drawings.HealthBarOutline.Visible = true
+            else
+                playerData.Drawings.HealthBarOutline.Visible = false
+            end
+        else
+            playerData.Drawings.HealthBar.Visible = false
+            playerData.Drawings.HealthBarOutline.Visible = false
+        end
+    else
+        playerData.Drawings.HealthBar.Visible = false
+        playerData.Drawings.HealthBarOutline.Visible = false
+    end
+    
+    -- Update tracer ESP
+    if self.Settings.TracerEnabled then
+        local hrpPos, onScreen, depth = self:WorldToScreen(hrp.Position)
+        
+        if onScreen then
+            local from
+            
+            if self.Settings.TracerOrigin == "Bottom" then
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            elseif self.Settings.TracerOrigin == "Center" then
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            elseif self.Settings.TracerOrigin == "Mouse" then
+                from = UserInputService:GetMouseLocation()
+            end
+            
+            playerData.Drawings.Tracer.From = from
+            playerData.Drawings.Tracer.To = hrpPos
+            playerData.Drawings.Tracer.Color = color
+            playerData.Drawings.Tracer.Transparency = transparency * self.Settings.TracerTransparency
+            playerData.Drawings.Tracer.Visible = true
+            
+            if self.Settings.TracerOutline then
+                playerData.Drawings.TracerOutline.From = from
+                playerData.Drawings.TracerOutline.To = hrpPos
+                playerData.Drawings.TracerOutline.Transparency = transparency * self.Settings.TracerOutlineTransparency
+                playerData.Drawings.TracerOutline.Visible = true
+            else
+                playerData.Drawings.TracerOutline.Visible = false
+            end
+        else
+            playerData.Drawings.Tracer.Visible = false
+            playerData.Drawings.TracerOutline.Visible = false
+        end
+    else
+        playerData.Drawings.Tracer.Visible = false
+        playerData.Drawings.TracerOutline.Visible = false
+    end
+    
+    -- Update head dot ESP
+    if self.Settings.HeadDotEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        
+        if onScreen then
+            playerData.Drawings.HeadDot.Position = headPos
+            playerData.Drawings.HeadDot.Color = color
+            playerData.Drawings.HeadDot.Transparency = transparency * self.Settings.HeadDotTransparency
+            playerData.Drawings.HeadDot.Visible = true
+            
+            if self.Settings.HeadDotOutline then
+                playerData.Drawings.HeadDotOutline.Position = headPos
+                playerData.Drawings.HeadDotOutline.Transparency = transparency * self.Settings.HeadDotOutlineTransparency
+                playerData.Drawings.HeadDotOutline.Visible = true
+            else
+                playerData.Drawings.HeadDotOutline.Visible = false
+            end
+        else
+            playerData.Drawings.HeadDot.Visible = false
+            playerData.Drawings.HeadDotOutline.Visible = false
+        end
+    else
+        playerData.Drawings.HeadDot.Visible = false
+        playerData.Drawings.HeadDotOutline.Visible = false
+    end
+    
+    -- Update skeleton ESP
+    if self.Settings.SkeletonEnabled then
+        local skeletonPoints = self:GetSkeletonPoints(character)
+        
+        if skeletonPoints then
+            for i, points in ipairs(skeletonPoints) do
+                if i <= #playerData.Drawings.Skeleton then
+                    playerData.Drawings.Skeleton[i].Line.From = points[1]
+                    playerData.Drawings.Skeleton[i].Line.To = points[2]
+                    playerData.Drawings.Skeleton[i].Line.Color = color
+                    playerData.Drawings.Skeleton[i].Line.Transparency = transparency * self.Settings.SkeletonTransparency
+                    playerData.Drawings.Skeleton[i].Line.Visible = true
+                    
+                    if self.Settings.SkeletonOutline then
+                        playerData.Drawings.Skeleton[i].Outline.From = points[1]
+                        playerData.Drawings.Skeleton[i].Outline.To = points[2]
+                        playerData.Drawings.Skeleton[i].Outline.Transparency = transparency * self.Settings.SkeletonOutlineTransparency
+                        playerData.Drawings.Skeleton[i].Outline.Visible = true
+                    else
+                        playerData.Drawings.Skeleton[i].Outline.Visible = false
+                    end
+                end
+            end
+            
+            -- Hide unused skeleton lines
+            for i = #skeletonPoints + 1, #playerData.Drawings.Skeleton do
+                playerData.Drawings.Skeleton[i].Line.Visible = false
+                playerData.Drawings.Skeleton[i].Outline.Visible = false
+            end
+        else
+            for i = 1, #playerData.Drawings.Skeleton do
+                playerData.Drawings.Skeleton[i].Line.Visible = false
+                playerData.Drawings.Skeleton[i].Outline.Visible = false
+            end
+        end
+    else
+        for i = 1, #playerData.Drawings.Skeleton do
+            playerData.Drawings.Skeleton[i].Line.Visible = false
+            playerData.Drawings.Skeleton[i].Outline.Visible = false
+        end
+    end
+    
+    -- Update tool ESP
+    if self.Settings.ToolEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        
+        if onScreen then
+            local tool = character:FindFirstChildOfClass("Tool")
+            local toolName = tool and tool.Name or "None"
+            
+            playerData.Drawings.Tool.Position = headPos + self.Settings.ToolOffset
+            playerData.Drawings.Tool.Text = "Tool: " .. toolName
+            playerData.Drawings.Tool.Color = color
+            playerData.Drawings.Tool.Transparency = transparency * self.Settings.ToolTransparency
+            playerData.Drawings.Tool.Visible = true
+        else
+            playerData.Drawings.Tool.Visible = false
+        end
+    else
+        playerData.Drawings.Tool.Visible = false
+    end
+    
+    -- Update state ESP
+    if self.Settings.StateEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        
+        if onScreen then
+            local state = "Standing"
+            
+            if humanoid.Health <= 0 then
+                state = "Dead"
+            elseif humanoid.PlatformStand then
+                state = "Stunned"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Climbing then
+                state = "Climbing"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+                state = "Jumping"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+                state = "Falling"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Seated then
+                state = "Seated"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Swimming then
+                state = "Swimming"
+            elseif humanoid.MoveDirection.Magnitude > 0 then
+                state = "Moving"
+            end
+            
+            playerData.Drawings.State.Position = headPos + self.Settings.StateOffset
+            playerData.Drawings.State.Text = "State: " .. state
+            playerData.Drawings.State.Color = color
+            playerData.Drawings.State.Transparency = transparency * self.Settings.StateTransparency
+            playerData.Drawings.State.Visible = true
+        else
+            playerData.Drawings.State.Visible = false
+        end
+    else
+        playerData.Drawings.State.Visible = false
+    end
+    
+    -- Update aim point ESP
+    if self.Settings.AimPointEnabled then
+        local aimPart = FindFirstChild(character, "Head") or FindFirstChild(character, "HumanoidRootPart")
+        
+        if aimPart then
+            local aimPos, onScreen, depth = self:WorldToScreen(aimPart.Position)
+            
+            if onScreen then
+                playerData.Drawings.AimPoint.Position = aimPos
+                playerData.Drawings.AimPoint.Color = color
+                playerData.Drawings.AimPoint.Transparency = transparency * self.Settings.AimPointTransparency
+                playerData.Drawings.AimPoint.Visible = true
+                
+                if self.Settings.AimPointOutline then
+                    playerData.Drawings.AimPointOutline.Position = aimPos
+                    playerData.Drawings.AimPointOutline.Transparency = transparency * self.Settings.AimPointOutlineTransparency
+                    playerData.Drawings.AimPointOutline.Visible = true
+                else
+                    playerData.Drawings.AimPointOutline.Visible = false
+                end
+            else
+                playerData.Drawings.AimPoint.Visible = false
+                playerData.Drawings.AimPointOutline.Visible = false
+            end
+        else
+            playerData.Drawings.AimPoint.Visible = false
+            playerData.Drawings.AimPointOutline.Visible = false
+        end
+    else
+        playerData.Drawings.AimPoint.Visible = false
+        playerData.Drawings.AimPointOutline.Visible = false
+    end
+    
+    -- Update hitbox ESP
+    if self.Settings.HitboxEnabled then
+        local hitboxPoints = self:GetHitboxPoints(character)
+        
+        if hitboxPoints then
+            for i, point in ipairs(hitboxPoints) do
+                if i <= #playerData.Drawings.Hitbox then
+                    playerData.Drawings.Hitbox[i].Position = point
+                    playerData.Drawings.Hitbox[i].Color = color
+                    playerData.Drawings.Hitbox[i].Transparency = transparency * self.Settings.HitboxTransparency
+                    playerData.Drawings.Hitbox[i].Visible = true
+                end
+            end
+            
+            -- Hide unused hitbox points
+            for i = #hitboxPoints + 1, #playerData.Drawings.Hitbox do
+                playerData.Drawings.Hitbox[i].Visible = false
+            end
+        else
+            for i = 1, #playerData.Drawings.Hitbox do
+                playerData.Drawings.Hitbox[i].Visible = false
+            end
+        end
+    else
+        for i = 1, #playerData.Drawings.Hitbox do
+            playerData.Drawings.Hitbox[i].Visible = false
+        end
     end
 end
 
@@ -1064,100 +1512,6 @@ function ESP:UpdateObjectESP(object)
     end
 end
 
--- Direct Object ESP API
-local ObjectESP = {}
-local ObjectESPMeta = {}
-
-function ObjectESPMeta:__index(key)
-    if key == "Box" then
-        return function(self)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            local objectData = espLib:CreateObjectESP(object, {
-                BoxEnabled = true,
-                NameEnabled = false,
-                DistanceEnabled = false,
-                TracerEnabled = false
-            })
-            
-            return objectData
-        end
-    elseif key == "Name" then
-        return function(self)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            local objectData = espLib:CreateObjectESP(object, {
-                BoxEnabled = false,
-                NameEnabled = true,
-                DistanceEnabled = false,
-                TracerEnabled = false
-            })
-            
-            return objectData
-        end
-    elseif key == "Distance" then
-        return function(self)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            local objectData = espLib:CreateObjectESP(object, {
-                BoxEnabled = false,
-                NameEnabled = false,
-                DistanceEnabled = true,
-                TracerEnabled = false
-            })
-            
-            return objectData
-        end
-    elseif key == "Tracer" then
-        return function(self)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            local objectData = espLib:CreateObjectESP(object, {
-                BoxEnabled = false,
-                NameEnabled = false,
-                DistanceEnabled = false,
-                TracerEnabled = true
-            })
-            
-            return objectData
-        end
-    elseif key == "Full" then
-        return function(self)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            local objectData = espLib:CreateObjectESP(object, {
-                BoxEnabled = true,
-                NameEnabled = true,
-                DistanceEnabled = true,
-                TracerEnabled = true
-            })
-            
-            return objectData
-        end
-    elseif key == "Custom" then
-        return function(self, settings)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            local objectData = espLib:CreateObjectESP(object, settings)
-            
-            return objectData
-        end
-    elseif key == "Remove" then
-        return function(self)
-            local object = self
-            local espLib = getgenv().ESP or ESP
-            
-            espLib:RemoveObjectESP(object)
-        end
-    end
-end
-
 -- Main Functions
 function ESP:Init()
     -- Create connections
@@ -1252,32 +1606,6 @@ function ESP:Init()
             self:CreatePlayerESP(player)
         end
     end
-    
-    -- Apply metatable to all instances
-    setmetatable(game, {
-        __index = function(t, k)
-            if k == "ESP" then
-                return ObjectESP
-            end
-            return rawget(t, k)
-        end
-    })
-    
-    -- Apply metatable to all instances
-    local oldIndex = getrawmetatable(game).__index
-    setreadonly(getrawmetatable(game), false)
-    
-    getrawmetatable(game).__index = newcclosure(function(self, key)
-        if key == "ESP" then
-            return ObjectESP
-        end
-        return oldIndex(self, key)
-    end)
-    
-    setreadonly(getrawmetatable(game), true)
-    
-    -- Set metatable for ObjectESP
-    setmetatable(ObjectESP, ObjectESPMeta)
     
     return self
 end
@@ -1580,5 +1908,81 @@ function ESP:SetThickness(thickness)
     return thickness
 end
 
+-- New API Functions for Direct Object Targeting
+function ESP:Add(object, options)
+    if not object then return end
+    
+    if object:IsA("Player") then
+        local playerData = self:CreatePlayerESP(object)
+        return playerData
+    else
+        local objectData = self:CreateObjectESP(object, options)
+        return objectData
+    end
+end
 
+function ESP:Remove(object)
+    if not object then return end
+    
+    if object:IsA("Player") then
+        self:RemovePlayerESP(object)
+    else
+        self:RemoveObjectESP(object)
+    end
+end
+
+function ESP:AddBox(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = true
+    customSettings.NameEnabled = false
+    customSettings.DistanceEnabled = false
+    customSettings.TracerEnabled = false
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddName(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = false
+    customSettings.NameEnabled = true
+    customSettings.DistanceEnabled = false
+    customSettings.TracerEnabled = false
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddDistance(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = false
+    customSettings.NameEnabled = false
+    customSettings.DistanceEnabled = true
+    customSettings.TracerEnabled = false
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddTracer(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = false
+    customSettings.NameEnabled = false
+    customSettings.DistanceEnabled = false
+    customSettings.TracerEnabled = true
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddFull(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = true
+    customSettings.NameEnabled = true
+    customSettings.DistanceEnabled = true
+    customSettings.TracerEnabled = true
+    
+    return self:Add(object, customSettings)
+end
+
+-- Create and return the ESP instance
 local espLib = ESP:Init()
+
+-- Return the ESP library
+return espLib
