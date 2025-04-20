@@ -719,10 +719,6 @@ function ESP:GetHitboxPoints(character)
         }
     }
     
-    for partName, part in pairs(hitboxParts)  "Left Leg")
-        }
-    }
-    
     for partName, part in pairs(hitboxParts) do
         if self.Settings.CustomHitboxPoints[partName] then
             if type(part) == "table" then
@@ -1392,11 +1388,11 @@ function ESP:UpdatePlayerESP(player)
         else
             playerData.Drawings.OffScreenArrow.Visible = false
             playerData.Drawings.OffScreenArrowOutline.Visible = false
-        }
+        end
     else
         playerData.Drawings.OffScreenArrow.Visible = false
         playerData.Drawings.OffScreenArrowOutline.Visible = false
-    }
+    end
     
     -- If player is not on screen, hide on-screen ESP elements but keep off-screen arrows
     if not onScreen then
@@ -1463,7 +1459,7 @@ function ESP:UpdatePlayerESP(player)
         end
         
         return
-    }
+    end
     
     -- Continue with on-screen ESP elements
     if self.Settings.BoxEnabled then
@@ -2825,32 +2821,459 @@ function ESP:ToggleOffScreenArrows(enabled)
         self.Settings.OffScreenArrowEnabled = enabled
     else
         self.Settings.OffScreenArrowEnabled = not self.Settings.OffScreenArrowEnabled
-    }
+    end
     
     return self.Settings.OffScreenArrowEnabled
-}
+end
 
 function ESP:SetOffScreenArrowColor(color)
     self.Settings.OffScreenArrowColor = color
     return color
-}
+end
 
 function ESP:SetOffScreenArrowSize(size)
     self.Settings.OffScreenArrowSize = size
     return size
-}
+end
 
 function ESP:SetOffScreenArrowRadius(radius)
     self.Settings.OffScreenArrowRadius = radius
     return radius
-}
+end
 
 function ESP:SetOffScreenArrowTransparency(transparency)
     self.Settings.OffScreenArrowTransparency = transparency
     return transparency
-}
+end
 
--- Add other methods from the original library...
+function ESP:ToggleBox(enabled)
+    if enabled ~= nil then
+        self.Settings.BoxEnabled = enabled
+    else
+        self.Settings.BoxEnabled = not self.Settings.BoxEnabled
+    end
+    
+    return self.Settings.BoxEnabled
+end
+
+function ESP:SetBoxType(boxType)
+    self.Settings.BoxType = boxType
+    return boxType
+end
+
+function ESP:ToggleName(enabled)
+    if enabled ~= nil then
+        self.Settings.NameEnabled = enabled
+    else
+        self.Settings.NameEnabled = not self.Settings.NameEnabled
+    end
+    
+    return self.Settings.NameEnabled
+end
+
+function ESP:ToggleDistance(enabled)
+    if enabled ~= nil then
+        self.Settings.DistanceEnabled = enabled
+    else
+        self.Settings.DistanceEnabled = not self.Settings.DistanceEnabled
+    end
+    
+    return self.Settings.DistanceEnabled
+end
+
+function ESP:ToggleHealth(enabled)
+    if enabled ~= nil then
+        self.Settings.HealthEnabled = enabled
+    else
+        self.Settings.HealthEnabled = not self.Settings.HealthEnabled
+    end
+    
+    return self.Settings.HealthEnabled
+end
+
+function ESP:ToggleTracer(enabled)
+    if enabled ~= nil then
+        self.Settings.TracerEnabled = enabled
+    else
+        self.Settings.TracerEnabled = not self.Settings.TracerEnabled
+    end
+    
+    return self.Settings.TracerEnabled
+end
+
+function ESP:ToggleChams(enabled)
+    if enabled ~= nil then
+        self.Settings.ChamsEnabled = enabled
+    else
+        self.Settings.ChamsEnabled = not self.Settings.ChamsEnabled
+    end
+    
+    return self.Settings.ChamsEnabled
+end
+
+function ESP:ToggleSkeleton(enabled)
+    if enabled ~= nil then
+        self.Settings.SkeletonEnabled = enabled
+    else
+        self.Settings.SkeletonEnabled = not self.Settings.SkeletonEnabled
+    end
+    
+    return self.Settings.SkeletonEnabled
+end
+
+function ESP:ToggleHeadDot(enabled)
+    if enabled ~= nil then
+        self.Settings.HeadDotEnabled = enabled
+    else
+        self.Settings.HeadDotEnabled = not self.Settings.HeadDotEnabled
+    end
+    
+    return self.Settings.HeadDotEnabled
+end
+
+function ESP:ToggleTeamCheck(enabled)
+    if enabled ~= nil then
+        self.Settings.TeamCheck = enabled
+    else
+        self.Settings.TeamCheck = not self.Settings.TeamCheck
+    end
+    
+    return self.Settings.TeamCheck
+end
+
+function ESP:ToggleVisibilityCheck(enabled)
+    if enabled ~= nil then
+        self.Settings.VisibilityCheck = enabled
+    else
+        self.Settings.VisibilityCheck = not self.Settings.VisibilityCheck
+    end
+    
+    return self.Settings.VisibilityCheck
+end
+
+function ESP:SetColor(color)
+    self.Settings.BoxColor = color
+    self.Settings.NameColor = color
+    self.Settings.DistanceColor = color
+    self.Settings.TracerColor = color
+    self.Settings.SkeletonColor = color
+    
+    return color
+end
+
+function ESP:SetTeamColor(color)
+    self.Settings.TeamColor = color
+    
+    return color
+end
+
+function ESP:SetEnemyColor(color)
+    self.Settings.EnemyColor = color
+    
+    return color
+end
+
+function ESP:SetMaxDistance(distance)
+    self.Settings.MaxDistance = distance
+    
+    return distance
+end
+
+function ESP:AddToWhitelist(player)
+    if type(player) == "string" then
+        tableinsert(self.Settings.Whitelist, player)
+    elseif type(player) == "number" then
+        tableinsert(self.Settings.Whitelist, player)
+    elseif player:IsA("Player") then
+        tableinsert(self.Settings.Whitelist, player.Name)
+    end
+    
+    return self.Settings.Whitelist
+end
+
+function ESP:RemoveFromWhitelist(player)
+    if type(player) == "string" then
+        for i, name in ipairs(self.Settings.Whitelist) do
+            if name == player then
+                tableremove(self.Settings.Whitelist, i)
+                break
+            end
+        end
+    elseif type(player) == "number" then
+        for i, id in ipairs(self.Settings.Whitelist) do
+            if id == player then
+                tableremove(self.Settings.Whitelist, i)
+                break
+            end
+        end
+    elseif player:IsA("Player") then
+        for i, name in ipairs(self.Settings.Whitelist) do
+            if name == player.Name then
+                tableremove(self.Settings.Whitelist, i)
+                break
+            end
+        end
+    end
+    
+    return self.Settings.Whitelist
+end
+
+function ESP:AddToBlacklist(player)
+    if type(player) == "string" then
+        tableinsert(self.Settings.Blacklist, player)
+    elseif type(player) == "number" then
+        tableinsert(self.Settings.Blacklist, player)
+    elseif player:IsA("Player") then
+        tableinsert(self.Settings.Blacklist, player.Name)
+    end
+    
+    return self.Settings.Blacklist
+end
+
+function ESP:RemoveFromBlacklist(player)
+    if type(player) == "string" then
+        for i, name in ipairs(self.Settings.Blacklist) do
+            if name == player then
+                tableremove(self.Settings.Blacklist, i)
+                break
+            end
+        end
+    elseif type(player) == "number" then
+        for i, id in ipairs(self.Settings.Blacklist) do
+            if id == player then
+                tableremove(self.Settings.Blacklist, i)
+                break
+            end
+        end
+    elseif player:IsA("Player") then
+        for i, name in ipairs(self.Settings.Blacklist) do
+            if name == player.Name then
+                tableremove(self.Settings.Blacklist, i)
+                break
+            end
+        end
+    end
+    
+    return self.Settings.Blacklist
+end
+
+function ESP:ClearWhitelist()
+    self.Settings.Whitelist = {}
+    return self.Settings.Whitelist
+end
+
+function ESP:ClearBlacklist()
+    self.Settings.Blacklist = {}
+    return self.Settings.Blacklist
+end
+
+function ESP:SetRefreshRate(rate)
+    self.Settings.RefreshRate = rate
+    return rate
+end
+
+function ESP:SetTracerOrigin(origin)
+    self.Settings.TracerOrigin = origin
+    return origin
+end
+
+function ESP:SetTracerStyle(style)
+    self.Settings.TracerStyle = style
+    return style
+end
+
+function ESP:SetSkeletonStyle(style)
+    self.Settings.SkeletonStyle = style
+    return style
+end
+
+function ESP:SetHealthBarType(healthType)
+    self.Settings.HealthType = healthType
+    return healthType
+end
+
+function ESP:ToggleRainbowMode(enabled)
+    if enabled ~= nil then
+        self.Settings.RainbowMode = enabled
+    else
+        self.Settings.RainbowMode = not self.Settings.RainbowMode
+    end
+    
+    return self.Settings.RainbowMode
+end
+
+function ESP:SetRainbowSpeed(speed)
+    self.Settings.RainbowSpeed = speed
+    return speed
+end
+
+function ESP:SetTransparency(transparency)
+    self.Settings.BoxTransparency = transparency
+    self.Settings.NameTransparency = transparency
+    self.Settings.DistanceTransparency = transparency
+    self.Settings.HealthTransparency = transparency
+    self.Settings.TracerTransparency = transparency
+    self.Settings.SkeletonTransparency = transparency
+    self.Settings.HeadDotTransparency = transparency
+    self.Settings.OffScreenArrowTransparency = transparency
+    
+    return transparency
+end
+
+function ESP:SetThickness(thickness)
+    self.Settings.BoxThickness = thickness
+    self.Settings.TracerThickness = thickness
+    self.Settings.SkeletonThickness = thickness
+    self.Settings.HeadDotThickness = thickness
+    
+    return thickness
+end
+
+function ESP:SetBoxPadding(padding)
+    if type(padding) == "number" then
+        self.Settings.BoxPadding = Vector3new(padding, padding, padding)
+    else
+        self.Settings.BoxPadding = padding
+    end
+    return self.Settings.BoxPadding
+end
+
+function ESP:SetNamePosition(position, xOffset, yOffset)
+    self.Settings.NamePosition = position
+    if xOffset then self.Settings.NameXOffset = xOffset end
+    if yOffset then self.Settings.NameYOffset = yOffset end
+    return position
+end
+
+function ESP:SetDistancePosition(position, xOffset, yOffset)
+    self.Settings.DistancePosition = position
+    if xOffset then self.Settings.DistanceXOffset = xOffset end
+    if yOffset then self.Settings.DistanceYOffset = yOffset end
+    return position
+end
+
+function ESP:SetHealthPosition(position, xOffset, yOffset)
+    self.Settings.HealthPosition = position
+    if xOffset then self.Settings.HealthXOffset = xOffset end
+    if yOffset then self.Settings.HealthYOffset = yOffset end
+    return position
+end
+
+function ESP:SetToolPosition(position, xOffset, yOffset)
+    self.Settings.ToolPosition = position
+    if xOffset then self.Settings.ToolXOffset = xOffset end
+    if yOffset then self.Settings.ToolYOffset = yOffset end
+    return position
+end
+
+function ESP:SetStatePosition(position, xOffset, yOffset)
+    self.Settings.StatePosition = position
+    if xOffset then self.Settings.StateXOffset = xOffset end
+    if yOffset then self.Settings.StateYOffset = yOffset end
+    return position
+end
+
+function ESP:SetTracerOffset(xOffset, yOffset)
+    if xOffset then self.Settings.TracerXOffset = xOffset end
+    if yOffset then self.Settings.TracerYOffset = yOffset end
+    return Vector2new(self.Settings.TracerXOffset, self.Settings.TracerYOffset)
+end
+
+function ESP:SetHeadDotOffset(xOffset, yOffset)
+    if xOffset then self.Settings.HeadDotXOffset = xOffset end
+    if yOffset then self.Settings.HeadDotYOffset = yOffset end
+    return Vector2new(self.Settings.HeadDotXOffset, self.Settings.HeadDotYOffset)
+end
+
+function ESP:SetAimPointOffset(xOffset, yOffset)
+    if xOffset then self.Settings.AimPointXOffset = xOffset end
+    if yOffset then self.Settings.AimPointYOffset = yOffset end
+    return Vector2new(self.Settings.AimPointXOffset, self.Settings.AimPointYOffset)
+end
+
+function ESP:Add(object, options)
+    if not object then return end
+    
+    if object:IsA("Player") then
+        local playerData = self:CreatePlayerESP(object)
+        return playerData
+    else
+        local objectData = self:CreateObjectESP(object, options)
+        return objectData
+    end
+end
+
+function ESP:Remove(object)
+    if not object then return end
+    
+    if object:IsA("Player") then
+        self:RemovePlayerESP(object)
+    else
+        self:RemoveObjectESP(object)
+    end
+end
+
+function ESP:AddBox(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = true
+    customSettings.NameEnabled = false
+    customSettings.DistanceEnabled = false
+    customSettings.TracerEnabled = false
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddName(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = false
+    customSettings.NameEnabled = true
+    customSettings.DistanceEnabled = false
+    customSettings.TracerEnabled = false
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddDistance(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = false
+    customSettings.NameEnabled = false
+    customSettings.DistanceEnabled = true
+    customSettings.TracerEnabled = false
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddTracer(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = false
+    customSettings.NameEnabled = false
+    customSettings.DistanceEnabled = false
+    customSettings.TracerEnabled = true
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddFull(object, options)
+    local customSettings = options or {}
+    customSettings.BoxEnabled = true
+    customSettings.NameEnabled = true
+    customSettings.DistanceEnabled = true
+    customSettings.TracerEnabled = true
+    
+    return self:Add(object, customSettings)
+end
+
+function ESP:AddMultiple(objects, options)
+    if not objects then return end
+    
+    local results = {}
+    
+    for _, object in ipairs(objects) do
+        table.insert(results, self:Add(object, options))
+    end
+    
+    return results
+end
 
 local espLib = ESP:Init()
 return espLib
