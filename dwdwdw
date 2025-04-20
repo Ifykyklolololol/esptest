@@ -1,46 +1,5 @@
 
--- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
 
--- Constants stuff
-local Vector2new = Vector2.new
-local Vector3new = Vector3.new
-local CFramenew = CFrame.new
-local Color3new = Color3.new
-local Color3fromRGB = Color3.fromRGB
-local Color3fromHSV = Color3.fromHSV
-local Drawingnew = Drawing.new
-local WorldToViewportPoint = Camera.WorldToViewportPoint
-local WorldToScreenPoint = Camera.WorldToScreenPoint
-local RaycastParamsnew = RaycastParams.new
-local EnumRaycastFilterTypeBlacklist = Enum.RaycastFilterType.Blacklist
-local FindFirstChild = game.FindFirstChild
-local IsA = game.IsA
-local taskwait = task.wait
-local taskspawn = task.spawn
-local mathfloor = math.floor
-local mathabs = math.abs
-local mathclamp = math.clamp
-local mathcos = math.cos
-local mathsin = math.sin
-local mathrad = math.rad
-local mathhuge = math.huge
-local mathmin = math.min
-local mathmax = math.max
-local mathpi = math.pi
-local tableinsert = table.insert
-local tableremove = table.remove
-local tablefind = table.find
-local stringsub = string.sub
-local stringlen = string.len
-local stringformat = string.format
-local stringlower = string.lower
 
 local ESP = {
     Enabled = true,
@@ -195,6 +154,8 @@ local ESP = {
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
@@ -359,9 +320,112 @@ function ESP:Init()
     return self
 end
 
-function ESP:ConfigureKeybinds()
+function ESP:SetKeybind(action, keyCode)
+    if action == "Toggle" then
+        self.Settings.ToggleKey = keyCode
+    elseif action == "Box" then
+        self.Settings.BoxToggleKey = keyCode
+    elseif action == "Name" then
+        self.Settings.NameToggleKey = keyCode
+    elseif action == "Distance" then
+        self.Settings.DistanceToggleKey = keyCode
+    elseif action == "Health" then
+        self.Settings.HealthToggleKey = keyCode
+    elseif action == "Tracer" then
+        self.Settings.TracerToggleKey = keyCode
+    elseif action == "Chams" then
+        self.Settings.ChamsToggleKey = keyCode
+    elseif action == "Skeleton" then
+        self.Settings.SkeletonToggleKey = keyCode
+    elseif action == "HeadDot" then
+        self.Settings.HeadDotToggleKey = keyCode
+    end
+
+    return true
+end
+
+function ESP:ConfigureKeybinds(keybinds)
+    if type(keybinds) ~= "table" then return false end
+
+    if keybinds.Toggle then
+        self.Settings.ToggleKey = keybinds.Toggle
+    end
+
+    if keybinds.Box then
+        self.Settings.BoxToggleKey = keybinds.Box
+    end
+
+    if keybinds.Name then
+        self.Settings.NameToggleKey = keybinds.Name
+    end
+
+    if keybinds.Distance then
+        self.Settings.DistanceToggleKey = keybinds.Distance
+    end
+
+    if keybinds.Health then
+        self.Settings.HealthToggleKey = keybinds.Health
+    end
+
+    if keybinds.Tracer then
+        self.Settings.TracerToggleKey = keybinds.Tracer
+    end
+
+    if keybinds.Chams then
+        self.Settings.ChamsToggleKey = keybinds.Chams
+    end
+
+    if keybinds.Skeleton then
+        self.Settings.SkeletonToggleKey = keybinds.Skeleton
+    end
+
+    if keybinds.HeadDot then
+        self.Settings.HeadDotToggleKey = keybinds.HeadDot
+    end
+
     self.KeybindsConfigured = true
-    return self
+
+    return true
+end
+
+function ESP:ResetKeybinds()
+    self.Settings.ToggleKey = Enum.KeyCode.RightShift
+    self.Settings.BoxToggleKey = Enum.KeyCode.One
+    self.Settings.NameToggleKey = Enum.KeyCode.Two
+    self.Settings.DistanceToggleKey = Enum.KeyCode.Three
+    self.Settings.HealthToggleKey = Enum.KeyCode.Four
+    self.Settings.TracerToggleKey = Enum.KeyCode.Five
+    self.Settings.ChamsToggleKey = Enum.KeyCode.Six
+    self.Settings.SkeletonToggleKey = Enum.KeyCode.Seven
+    self.Settings.HeadDotToggleKey = Enum.KeyCode.Eight
+
+    self.KeybindsConfigured = true
+
+    return true
+end
+
+function ESP:EnableKeybinds(enabled)
+    if enabled ~= nil then
+        self.KeybindsConfigured = enabled
+    else
+        self.KeybindsConfigured = not self.KeybindsConfigured
+    end
+
+    return self.KeybindsConfigured
+end
+
+function ESP:GetKeybinds()
+    return {
+        Toggle = self.Settings.ToggleKey,
+        Box = self.Settings.BoxToggleKey,
+        Name = self.Settings.NameToggleKey,
+        Distance = self.Settings.DistanceToggleKey,
+        Health = self.Settings.HealthToggleKey,
+        Tracer = self.Settings.TracerToggleKey,
+        Chams = self.Settings.ChamsToggleKey,
+        Skeleton = self.Settings.SkeletonToggleKey,
+        HeadDot = self.Settings.HeadDotToggleKey
+    }
 end
 
 function ESP:Destroy()
@@ -699,15 +763,37 @@ function ESP:GetWeapon(player)
     return "Unknown"
 end
 
-function ESP:GetBoxCorners(player)
-    local character = self:GetCharacter(player)
-    if not character then return end
+function ESP:GetBoxCorners(object)
+    local character
+    local hrp
+    local head
     
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    local head = character:FindFirstChild("Head")
-    if not head then return end
+    if typeof(object) == "Instance" then
+        if object:IsA("Player") then
+            character = self:GetCharacter(object)
+            if not character then return end
+            
+            hrp = character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            
+            head = character:FindFirstChild("Head")
+            if not head then return end
+        elseif object:IsA("Model") then
+            character = object
+            hrp = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("PrimaryPart") or character:FindFirstChildWhichIsA("BasePart")
+            if not hrp then return end
+            
+            head = character:FindFirstChild("Head") or character:FindFirstChildWhichIsA("BasePart")
+            if not head then return end
+        elseif object:IsA("BasePart") then
+            hrp = object
+            head = object
+        else
+            return
+        end
+    else
+        return
+    end
     
     local rootPos = hrp.Position
     local headPos = head.Position
@@ -779,15 +865,37 @@ function ESP:GetCornerBoxPoints(boxCorners)
     return points
 end
 
-function ESP:Get3DBoxCorners(player)
-    local character = self:GetCharacter(player)
-    if not character then return end
+function ESP:Get3DBoxCorners(object)
+    local character
+    local hrp
+    local head
     
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    local head = character:FindFirstChild("Head")
-    if not head then return end
+    if typeof(object) == "Instance" then
+        if object:IsA("Player") then
+            character = self:GetCharacter(object)
+            if not character then return end
+            
+            hrp = character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            
+            head = character:FindFirstChild("Head")
+            if not head then return end
+        elseif object:IsA("Model") then
+            character = object
+            hrp = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("PrimaryPart") or character:FindFirstChildWhichIsA("BasePart")
+            if not hrp then return end
+            
+            head = character:FindFirstChild("Head") or character:FindFirstChildWhichIsA("BasePart")
+            if not head then return end
+        elseif object:IsA("BasePart") then
+            hrp = object
+            head = object
+        else
+            return
+        end
+    else
+        return
+    end
     
     local rootPos = hrp.Position
     local headPos = head.Position
@@ -2112,6 +2220,361 @@ function ESP:GetBoxCenter(object)
     end
     
     return Vector3new(0, 0, 0)
+end
+
+function ESP:SetLighting(enabled)
+    if enabled then
+        self.Settings.LightingEnabled = true
+        
+        self.OriginalLighting = {
+            Brightness = Lighting.Brightness,
+            ClockTime = Lighting.ClockTime,
+            FogEnd = Lighting.FogEnd,
+            GlobalShadows = Lighting.GlobalShadows,
+            OutdoorAmbient = Lighting.OutdoorAmbient
+        }
+        
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.OutdoorAmbient = Color3fromRGB(128, 128, 128)
+    else
+        self.Settings.LightingEnabled = false
+        
+        if self.OriginalLighting then
+            Lighting.Brightness = self.OriginalLighting.Brightness
+            Lighting.ClockTime = self.OriginalLighting.ClockTime
+            Lighting.FogEnd = self.OriginalLighting.FogEnd
+            Lighting.GlobalShadows = self.OriginalLighting.GlobalShadows
+            Lighting.OutdoorAmbient = self.OriginalLighting.OutdoorAmbient
+        end
+    end
+end
+
+function ESP:Toggle(enabled)
+    if enabled ~= nil then
+        self.Enabled = enabled
+    else
+        self.Enabled = not self.Enabled
+    end
+    
+    return self.Enabled
+end
+
+function ESP:ToggleBox(enabled)
+    if enabled ~= nil then
+        self.Settings.BoxEnabled = enabled
+    else
+        self.Settings.BoxEnabled = not self.Settings.BoxEnabled
+    end
+    
+    return self.Settings.BoxEnabled
+end
+
+function ESP:ToggleName(enabled)
+    if enabled ~= nil then
+        self.Settings.NameEnabled = enabled
+    else
+        self.Settings.NameEnabled = not self.Settings.NameEnabled
+    end
+    
+    return self.Settings.NameEnabled
+end
+
+function ESP:ToggleDistance(enabled)
+    if enabled ~= nil then
+        self.Settings.DistanceEnabled = enabled
+    else
+        self.Settings.DistanceEnabled = not self.Settings.DistanceEnabled
+    end
+    
+    return self.Settings.DistanceEnabled
+end
+
+function ESP:ToggleHealth(enabled)
+    if enabled ~= nil then
+        self.Settings.HealthEnabled = enabled
+    else
+        self.Settings.HealthEnabled = not self.Settings.HealthEnabled
+    end
+    
+    return self.Settings.HealthEnabled
+end
+
+function ESP:ToggleTracer(enabled)
+    if enabled ~= nil then
+        self.Settings.TracerEnabled = enabled
+    else
+        self.Settings.TracerEnabled = not self.Settings.TracerEnabled
+    end
+    
+    return self.Settings.TracerEnabled
+end
+
+function ESP:ToggleChams(enabled)
+    if enabled ~= nil then
+        self.Settings.ChamsEnabled = enabled
+    else
+        self.Settings.ChamsEnabled = not self.Settings.ChamsEnabled
+    end
+    
+    return self.Settings.ChamsEnabled
+end
+
+function ESP:ToggleSkeleton(enabled)
+    if enabled ~= nil then
+        self.Settings.SkeletonEnabled = enabled
+    else
+        self.Settings.SkeletonEnabled = not self.Settings.SkeletonEnabled
+    end
+    
+    return self.Settings.SkeletonEnabled
+end
+
+function ESP:ToggleHeadDot(enabled)
+    if enabled ~= nil then
+        self.Settings.HeadDotEnabled = enabled
+    else
+        self.Settings.HeadDotEnabled = not self.Settings.HeadDotEnabled
+    end
+    
+    return self.Settings.HeadDotEnabled
+end
+
+function ESP:ToggleWeapon(enabled)
+    if enabled ~= nil then
+        self.Settings.WeaponEnabled = enabled
+    else
+        self.Settings.WeaponEnabled = not self.Settings.WeaponEnabled
+    end
+    
+    return self.Settings.WeaponEnabled
+end
+
+function ESP:ToggleTeamCheck(enabled)
+    if enabled ~= nil then
+        self.Settings.TeamCheck = enabled
+    else
+        self.Settings.TeamCheck = not self.Settings.TeamCheck
+    end
+    
+    return self.Settings.TeamCheck
+end
+
+function ESP:ToggleTeamColor(enabled)
+    if enabled ~= nil then
+        self.Settings.TeamColor = enabled
+    else
+        self.Settings.TeamColor = not self.Settings.TeamColor
+    end
+    
+    return self.Settings.TeamColor
+end
+
+function ESP:ToggleFriendCheck(enabled)
+    if enabled ~= nil then
+        self.Settings.FriendCheck = enabled
+    else
+        self.Settings.FriendCheck = not self.Settings.FriendCheck
+    end
+    
+    return self.Settings.FriendCheck
+end
+
+function ESP:SetColor(color)
+    self.Settings.BoxColor = color
+    self.Settings.NameColor = color
+    self.Settings.DistanceColor = color
+    self.Settings.TracerColor = color
+    self.Settings.HeadDotColor = color
+    self.Settings.SkeletonColor = color
+end
+
+function ESP:SetOutlineColor(color)
+    self.Settings.BoxOutlineColor = color
+    self.Settings.NameOutlineColor = color
+    self.Settings.DistanceOutlineColor = color
+    self.Settings.TracerOutlineColor = color
+    self.Settings.HeadDotOutlineColor = color
+    self.Settings.SkeletonOutlineColor = color
+end
+
+function ESP:SetMaxDistance(distance)
+    self.Settings.MaxDistance = distance
+end
+
+function ESP:SetMinDistance(distance)
+    self.Settings.MinDistance = distance
+end
+
+function ESP:SetBoxType(boxType)
+    self.Settings.BoxType = boxType
+end
+
+function ESP:SetTracerOrigin(origin)
+    self.Settings.TracerOrigin = origin
+end
+
+function ESP:SetTracerStyle(style)
+    self.Settings.TracerStyle = style
+end
+
+function ESP:SetHealthBarPosition(position)
+    self.Settings.HealthBarPosition = position
+end
+
+function ESP:SetChamsDepthMode(mode)
+    self.Settings.ChamsDepthMode = mode
+end
+
+function ESP:GetSettings()
+    return self.Settings
+end
+
+function ESP:SetSettings(settings)
+    for key, value in pairs(settings) do
+        self.Settings[key] = value
+    end
+end
+
+function ESP:ResetSettings()
+    self.Settings = {
+        BoxEnabled = true,
+        BoxType = "2D",
+        BoxColor = Color3.new(1, 1, 1),
+        BoxThickness = 1,
+        BoxTransparency = 1,
+        BoxOutline = true,
+        BoxOutlineColor = Color3.new(0, 0, 0),
+        BoxOutlineTransparency = 1,
+        BoxFilled = false,
+        BoxFilledTransparency = 0.5,
+        BoxPadding = Vector3.new(0, 0, 0),
+        
+        NameEnabled = true,
+        NameColor = Color3.new(1, 1, 1),
+        NameTransparency = 1,
+        NameSize = 13,
+        NameOutline = true,
+        NameOutlineColor = Color3.new(0, 0, 0),
+        NameFont = 0,
+        NamePosition = "Top",
+        NameXOffset = 0,
+        NameYOffset = 0,
+        
+        DistanceEnabled = true,
+        DistanceColor = Color3.new(1, 1, 1),
+        DistanceTransparency = 1,
+        DistanceSize = 13,
+        DistanceOutline = true,
+        DistanceOutlineColor = Color3.new(0, 0, 0),
+        DistanceFont = 0,
+        DistancePosition = "Bottom",
+        DistanceXOffset = 0,
+        DistanceYOffset = 0,
+        
+        HealthEnabled = true,
+        HealthColor = Color3.new(0, 1, 0),
+        HealthTransparency = 1,
+        HealthSize = 13,
+        HealthOutline = true,
+        HealthOutlineColor = Color3.new(0, 0, 0),
+        HealthFont = 0,
+        HealthPosition = "Left",
+        HealthXOffset = 0,
+        HealthYOffset = 0,
+        HealthAutoColor = true,
+        HealthBarEnabled = true,
+        HealthBarThickness = 1,
+        HealthBarTransparency = 1,
+        HealthBarOutline = true,
+        HealthBarOutlineColor = Color3.new(0, 0, 0),
+        HealthBarOutlineTransparency = 1,
+        HealthBarFilled = true,
+        HealthBarFilledTransparency = 0.5,
+        HealthBarPosition = "Bottom",
+        HealthBarXOffset = 0,
+        HealthBarYOffset = 0,
+        HealthBarSide = "Left",
+        
+        TracerEnabled = true,
+        TracerColor = Color3.new(1, 1, 1),
+        TracerTransparency = 1,
+        TracerThickness = 1,
+        TracerOutline = true,
+        TracerOutlineColor = Color3.new(0, 0, 0),
+        TracerOutlineTransparency = 1,
+        TracerOrigin = "Bottom",
+        TracerXOffset = 0,
+        TracerYOffset = 0,
+        TracerStyle = "Line",
+        TracerDashSize = 3,
+        TracerDashGap = 2,
+        
+        ChamsEnabled = false,
+        ChamsColor = Color3.new(1, 0, 0),
+        ChamsTransparency = 0.5,
+        ChamsOutlineColor = Color3.new(0, 0, 0),
+        ChamsOutlineTransparency = 0,
+        ChamsOutlineEnabled = false,
+        ChamsDepthMode = "Occluded",
+        
+        SkeletonEnabled = false,
+        SkeletonColor = Color3.new(1, 1, 1),
+        SkeletonTransparency = 1,
+        SkeletonThickness = 1,
+        SkeletonOutline = true,
+        SkeletonOutlineColor = Color3.new(0, 0, 0),
+        SkeletonOutlineTransparency = 1,
+        
+        HeadDotEnabled = false,
+        HeadDotColor = Color3.new(1, 0, 0),
+        HeadDotTransparency = 1,
+        HeadDotThickness = 1,
+        HeadDotOutline = true,
+        HeadDotOutlineColor = Color3.new(0, 0, 0),
+        HeadDotOutlineTransparency = 1,
+        HeadDotSize = 5,
+        HeadDotFilled = true,
+        HeadDotFilledTransparency = 0.5,
+        
+        WeaponEnabled = false,
+        WeaponColor = Color3.new(1, 1, 1),
+        WeaponTransparency = 1,
+        WeaponSize = 13,
+        WeaponOutline = true,
+        WeaponOutlineColor = Color3.new(0, 0, 0),
+        WeaponFont = 0,
+        WeaponPosition = "Bottom",
+        WeaponXOffset = 0,
+        WeaponYOffset = 10,
+        
+        LightingEnabled = false,
+        Brightness = 1,
+        Contrast = 1,
+        Saturation = 1,
+        TintColor = Color3.new(1, 1, 1),
+        
+        TeamCheck = false,
+        TeamColor = false,
+        FriendCheck = false,
+        
+        MaxDistance = 1000,
+        MinDistance = 0,
+        
+        ToggleKey = Enum.KeyCode.F1,
+        BoxToggleKey = Enum.KeyCode.F2,
+        NameToggleKey = Enum.KeyCode.F3,
+        DistanceToggleKey = Enum.KeyCode.F4,
+        HealthToggleKey = Enum.KeyCode.F5,
+        TracerToggleKey = Enum.KeyCode.F6,
+        ChamsToggleKey = Enum.KeyCode.F7,
+        SkeletonToggleKey = Enum.KeyCode.F8,
+        HeadDotToggleKey = Enum.KeyCode.F9,
+        
+        ZIndex = 1
+    }
 end
 
 return ESP
