@@ -1,18 +1,4 @@
---[[
-Enhanced Roblox ESP Library
-Features:
-- Multiple Box Types: 2D, 3D, Corner, Filled, Rounded, Gradient
-- Improved visuals with smoother outlines and better colors
-- Name Tags, Distance, Health Bar, Tracers, Chams, Skeleton ESP, Head Dot
-- Team Check, Visibility Check, Toggle for each element
-- Max Distance Setting, Whitelist/Blacklist Players
-- Custom Colors, Rainbow Mode, Transparency/Thickness Control
-- Tool ESP, State Display, AimPoint, Hitbox Markers
-- Simple positioning system (top, bottom, left, right)
-- Adaptive scaling based on distance
-- Smooth animations and transitions
-- And many more customization options
-]]
+
 
 -- Services
 local Players = game:GetService("Players")
@@ -56,7 +42,6 @@ local stringsub = string.sub
 local stringlen = string.len
 local stringformat = string.format
 local stringlower = string.lower
-local stringfind = string.find
 
 -- ESP Library
 local ESP = {
@@ -772,14 +757,6 @@ end
 
 function ESP:ClearDrawings()
 for _, drawing in ipairs(self.Drawings) do
-    drawing:Remove()
-end
-
-self.Drawings = {}
-end
-
--- Draw dashed line
-function ESP:DrawD  do
     drawing:Remove()
 end
 
@@ -2094,7 +2071,7 @@ else
     objectData.Drawings.Name.Visible = false
 end
 
--- Update distance ESP - Only if enabled in object settings
+-- Update distance ESP
 if objectData.Settings.DistanceEnabled then
     local screenPos, onScreen, depth = self:WorldToScreen(position)
     local boxCorners = self:GetBoxCorners(object)
@@ -2122,7 +2099,7 @@ else
     objectData.Drawings.Distance.Visible = false
 end
 
--- Update tracer ESP - Only if enabled in object settings
+-- Update tracer ESP
 if objectData.Settings.TracerEnabled then
     local screenPos, onScreen, depth = self:WorldToScreen(position)
     
@@ -2754,18 +2731,6 @@ customSettings.DistanceEnabled = true
 customSettings.TracerEnabled = true
 
 return self:Add(object, customSettings)
-end
-
--- New function to add ESP to multiple objects
-function ESP:AddToAll(objects, options)
-local results = {}
-for _, object in pairs(objects) do
-    local result = self:Add(object, options)
-    if result then
-        table.insert(results, result)
-    end
-end
-return results
 end
 
 -- Create and return the ESP instance
