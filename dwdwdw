@@ -1,20 +1,3 @@
---[[
-Enhanced Roblox ESP Library
-Features:
-- Multiple Box Types: 2D, 3D, Corner, Filled, Rounded, Gradient
-- Improved visuals with smoother outlines and better colors
-- Name Tags, Distance, Health Bar, Tracers, Chams, Skeleton ESP, Head Dot
-- Team Check, Visibility Check, Toggle for each element
-- Max Distance Setting, Whitelist/Blacklist Players
-- Custom Colors, Rainbow Mode, Transparency/Thickness Control
-- Tool ESP, State Display, AimPoint, Hitbox Markers
-- Simple positioning system (top, bottom, left, right)
-- Adaptive scaling based on distance
-- Smooth animations and transitions
-- And many more customization options
-]]
-
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -23,7 +6,6 @@ local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Constants
 local Vector2new = Vector2.new
 local Vector3new = Vector3.new
 local CFramenew = CFrame.new
@@ -57,7 +39,6 @@ local stringlen = string.len
 local stringformat = string.format
 local stringlower = string.lower
 
--- ESP Library
 local ESP = {
 Enabled = true,
 Drawings = {},
@@ -65,9 +46,7 @@ Players = {},
 Objects = {},
 Connections = {},
 
--- Settings
 Settings = {
-    -- General
     RefreshRate = 0.01,
     MaxDistance = 1000,
     TeamCheck = false,
@@ -86,9 +65,8 @@ Settings = {
     SmoothTransitions = true,
     TransitionSpeed = 0.2,
     
-    -- Box ESP
     BoxEnabled = true,
-    BoxType = "2D", -- "2D", "3D", "Corner", "Filled", "Rounded", "Gradient"
+    BoxType = "2D",
     BoxColor = Color3fromRGB(255, 255, 255),
     BoxTransparency = 0.7,
     BoxThickness = 1,
@@ -101,9 +79,8 @@ Settings = {
     BoxGradientColor = Color3fromRGB(0, 0, 255),
     UsePartBoundingBox = true,
     BoxPadding = Vector3new(0.5, 0.5, 0.5),
-    CornerSize = 8, -- Size of corner segments for corner box
+    CornerSize = 8,
     
-    -- Name Tags
     NameEnabled = true,
     NameColor = Color3fromRGB(255, 255, 255),
     NameTransparency = 0.7,
@@ -111,12 +88,11 @@ Settings = {
     NameOutlineColor = Color3fromRGB(0, 0, 0),
     NameOutlineTransparency = 0.5,
     NameSize = 14,
-    NameFont = 2, -- Drawing.Fonts.UI
-    NamePosition = "top", -- top, bottom, left, right
-    NameYOffset = -15, -- Additional Y offset
-    NameXOffset = 0, -- Additional X offset
+    NameFont = 2,
+    NamePosition = "top",
+    NameYOffset = -15,
+    NameXOffset = 0,
     
-    -- Distance
     DistanceEnabled = true,
     DistanceColor = Color3fromRGB(255, 255, 255),
     DistanceTransparency = 0.7,
@@ -124,28 +100,26 @@ Settings = {
     DistanceOutlineColor = Color3fromRGB(0, 0, 0),
     DistanceOutlineTransparency = 0.5,
     DistanceSize = 13,
-    DistanceFont = 2, -- Drawing.Fonts.UI
-    DistancePosition = "bottom", -- top, bottom, left, right
-    DistanceYOffset = 15, -- Additional Y offset
-    DistanceXOffset = 0, -- Additional X offset
-    DistanceTextSize = true, -- Adjust text size based on distance
+    DistanceFont = 2,
+    DistancePosition = "bottom",
+    DistanceYOffset = 15,
+    DistanceXOffset = 0,
+    DistanceTextSize = true,
     
-    -- Health Bar
     HealthEnabled = true,
-    HealthType = "Vertical", -- "Vertical", "Horizontal"
+    HealthType = "Vertical",
     HealthColor = Color3fromRGB(0, 255, 0),
     HealthTransparency = 0.7,
     HealthOutline = true,
     HealthOutlineColor = Color3fromRGB(0, 0, 0),
     HealthOutlineTransparency = 0.5,
     HealthThickness = 1,
-    HealthPosition = "left", -- left, right, top, bottom
-    HealthYOffset = 0, -- Additional Y offset
-    HealthXOffset = -5, -- Additional X offset
+    HealthPosition = "left",
+    HealthYOffset = 0,
+    HealthXOffset = -5,
     HealthBarThickness = 2,
-    HealthGradient = true, -- Use gradient for health (red to green)
+    HealthGradient = true,
     
-    -- Tracers
     TracerEnabled = true,
     TracerColor = Color3fromRGB(255, 255, 255),
     TracerTransparency = 0.7,
@@ -153,14 +127,13 @@ Settings = {
     TracerOutline = true,
     TracerOutlineColor = Color3fromRGB(0, 0, 0),
     TracerOutlineTransparency = 0.5,
-    TracerOrigin = "Bottom", -- "Bottom", "Center", "Mouse"
-    TracerYOffset = 0, -- Additional Y offset
-    TracerXOffset = 0, -- Additional X offset
-    TracerStyle = "Line", -- "Line", "Dashed", "Dotted"
-    TracerDashSize = 3, -- Size of dashes for dashed tracer
-    TracerDashGap = 2, -- Gap between dashes
+    TracerOrigin = "Bottom",
+    TracerYOffset = 0,
+    TracerXOffset = 0,
+    TracerStyle = "Line",
+    TracerDashSize = 3,
+    TracerDashGap = 2,
     
-    -- Chams
     ChamsEnabled = true,
     ChamsColor = Color3fromRGB(255, 0, 0),
     ChamsTransparency = 0.5,
@@ -168,9 +141,8 @@ Settings = {
     ChamsOutlineTransparency = 0.5,
     ChamsUseTeamColor = false,
     ChamsVisibleOnly = false,
-    ChamsHighlightMode = "Outline", -- "Outline", "Fill"
+    ChamsHighlightMode = "Outline",
     
-    -- Skeleton ESP
     SkeletonEnabled = true,
     SkeletonColor = Color3fromRGB(255, 255, 255),
     SkeletonTransparency = 0.7,
@@ -178,11 +150,10 @@ Settings = {
     SkeletonOutline = true,
     SkeletonOutlineColor = Color3fromRGB(0, 0, 0),
     SkeletonOutlineTransparency = 0.5,
-    SkeletonStyle = "Line", -- "Line", "Dashed", "Dotted"
-    SkeletonDashSize = 3, -- Size of dashes for dashed skeleton
-    SkeletonDashGap = 2, -- Gap between dashes
+    SkeletonStyle = "Line",
+    SkeletonDashSize = 3,
+    SkeletonDashGap = 2,
     
-    -- Head Dot
     HeadDotEnabled = true,
     HeadDotColor = Color3fromRGB(255, 0, 0),
     HeadDotTransparency = 0.7,
@@ -192,13 +163,12 @@ Settings = {
     HeadDotOutline = true,
     HeadDotOutlineColor = Color3fromRGB(0, 0, 0),
     HeadDotOutlineTransparency = 0.5,
-    HeadDotYOffset = 0, -- Additional Y offset
-    HeadDotXOffset = 0, -- Additional X offset
-    HeadDotPulse = false, -- Pulsing animation
-    HeadDotPulseSpeed = 1, -- Speed of pulse
-    HeadDotPulseSize = 1.5, -- Max size multiplier for pulse
+    HeadDotYOffset = 0,
+    HeadDotXOffset = 0,
+    HeadDotPulse = false,
+    HeadDotPulseSpeed = 1,
+    HeadDotPulseSize = 1.5,
     
-    -- Tool ESP
     ToolEnabled = true,
     ToolColor = Color3fromRGB(255, 255, 255),
     ToolTransparency = 0.7,
@@ -206,12 +176,11 @@ Settings = {
     ToolOutlineColor = Color3fromRGB(0, 0, 0),
     ToolOutlineTransparency = 0.5,
     ToolSize = 13,
-    ToolFont = 2, -- Drawing.Fonts.UI
-    ToolPosition = "bottom", -- top, bottom, left, right
-    ToolYOffset = 30, -- Additional Y offset
-    ToolXOffset = 0, -- Additional X offset
+    ToolFont = 2,
+    ToolPosition = "bottom",
+    ToolYOffset = 30,
+    ToolXOffset = 0,
     
-    -- State Display
     StateEnabled = true,
     StateColor = Color3fromRGB(255, 255, 255),
     StateTransparency = 0.7,
@@ -219,12 +188,11 @@ Settings = {
     StateOutlineColor = Color3fromRGB(0, 0, 0),
     StateOutlineTransparency = 0.5,
     StateSize = 13,
-    StateFont = 2, -- Drawing.Fonts.UI
-    StatePosition = "bottom", -- top, bottom, left, right
-    StateYOffset = 45, -- Additional Y offset
-    StateXOffset = 0, -- Additional X offset
+    StateFont = 2,
+    StatePosition = "bottom",
+    StateYOffset = 45,
+    StateXOffset = 0,
     
-    -- AimPoint
     AimPointEnabled = true,
     AimPointColor = Color3fromRGB(255, 0, 0),
     AimPointTransparency = 0.7,
@@ -234,13 +202,12 @@ Settings = {
     AimPointOutline = true,
     AimPointOutlineColor = Color3fromRGB(0, 0, 0),
     AimPointOutlineTransparency = 0.5,
-    AimPointYOffset = 0, -- Additional Y offset
-    AimPointXOffset = 0, -- Additional X offset
-    AimPointPulse = true, -- Pulsing animation
-    AimPointPulseSpeed = 1, -- Speed of pulse
-    AimPointPulseSize = 1.5, -- Max size multiplier for pulse
+    AimPointYOffset = 0,
+    AimPointXOffset = 0,
+    AimPointPulse = true,
+    AimPointPulseSpeed = 1,
+    AimPointPulseSize = 1.5,
     
-    -- Hitbox Markers
     HitboxEnabled = true,
     HitboxColor = Color3fromRGB(255, 0, 0),
     HitboxTransparency = 0.7,
@@ -253,14 +220,12 @@ Settings = {
         Legs = true
     },
     
-    -- Colors
     TeamColor = true,
     EnemyColor = Color3fromRGB(255, 0, 0),
-    TeamColorMode = "Team", -- "Team", "Custom"
+    TeamColorMode = "Team",
     RainbowMode = false,
     RainbowSpeed = 1,
     
-    -- Keybinds
     ToggleKey = Enum.KeyCode.RightShift,
     BoxToggleKey = Enum.KeyCode.One,
     NameToggleKey = Enum.KeyCode.Two,
@@ -271,18 +236,15 @@ Settings = {
     SkeletonToggleKey = Enum.KeyCode.Seven,
     HeadDotToggleKey = Enum.KeyCode.Eight,
     
-    -- Lists
     Whitelist = {},
     Blacklist = {}
 },
 
--- Internal
 _rainbow = 0,
 _pulse = 0,
 _transitions = {}
 }
 
--- Utility Functions
 function ESP:IsAlive(player)
 local character = player.Character
 local humanoid = character and FindFirstChild(character, "Humanoid")
@@ -380,7 +342,6 @@ local screenPosition, onScreen = WorldToViewportPoint(Camera, position)
 return Vector2new(screenPosition.X, screenPosition.Y), onScreen, screenPosition.Z
 end
 
--- Transition function for smooth animations
 function ESP:Transition(id, current, target, speed)
 if not self.Settings.SmoothTransitions then return target end
 
@@ -400,7 +361,6 @@ end
 return self._transitions[id]
 end
 
--- Calculate position based on position type and box corners
 function ESP:CalculatePosition(positionType, boxCorners, basePosition, xOffset, yOffset)
 local position = basePosition
 
@@ -420,14 +380,12 @@ if boxCorners then
         position = Vector2new(bottomRight.X + xOffset, boxCenter.Y + yOffset)
     end
 else
-    -- If no box corners, just apply the offsets
     position = Vector2new(position.X + xOffset, position.Y + yOffset)
 end
 
 return position
 end
 
--- Improved function to get model bounds
 function ESP:GetModelBounds(model)
 if not model then return nil end
 
@@ -483,7 +441,6 @@ if not validParts then return nil end
 local size = Vector3new(maxX - minX, maxY - minY, maxZ - minZ)
 local position = Vector3new(minX + size.X/2, minY + size.Y/2, minZ + size.Z/2)
 
--- Apply padding
 size = size + self.Settings.BoxPadding
 
 return {
@@ -505,11 +462,9 @@ end
 local size = bounds.Size
 local position = bounds.Position
 
--- Calculate the camera-facing orientation
 local cameraPosition = Camera.CFrame.Position
 local lookVector = (position - cameraPosition).Unit
 
--- Create a CFrame that faces the camera
 local right = lookVector:Cross(Vector3new(0, 1, 0)).Unit
 local up = right:Cross(lookVector).Unit
 local cf = CFramenew(
@@ -519,7 +474,6 @@ local cf = CFramenew(
     right.Z, up.Z, -lookVector.Z
 )
 
--- Calculate corners that always face the camera
 local halfSizeX = size.X / 2
 local halfSizeY = size.Y / 2
 
@@ -556,11 +510,9 @@ end
 local size = bounds.Size
 local position = bounds.Position
 
--- Calculate the camera-facing orientation
 local cameraPosition = Camera.CFrame.Position
 local lookVector = (position - cameraPosition).Unit
 
--- Create a CFrame that faces the camera
 local right = lookVector:Cross(Vector3new(0, 1, 0)).Unit
 local up = right:Cross(lookVector).Unit
 local cf = CFramenew(
@@ -570,19 +522,16 @@ local cf = CFramenew(
     right.Z, up.Z, -lookVector.Z
 )
 
--- Define all 8 corners of the 3D box
 local halfSizeX = size.X / 2
 local halfSizeY = size.Y / 2
 local halfSizeZ = size.Z / 2
 
 local corners = {
-    -- Front face (facing camera)
     cf * CFramenew(-halfSizeX, halfSizeY, -halfSizeZ),
     cf * CFramenew(halfSizeX, halfSizeY, -halfSizeZ),
     cf * CFramenew(-halfSizeX, -halfSizeY, -halfSizeZ),
     cf * CFramenew(halfSizeX, -halfSizeY, -halfSizeZ),
     
-    -- Back face
     cf * CFramenew(-halfSizeX, halfSizeY, halfSizeZ),
     cf * CFramenew(halfSizeX, halfSizeY, halfSizeZ),
     cf * CFramenew(-halfSizeX, -halfSizeY, halfSizeZ),
@@ -619,21 +568,17 @@ local height = (bottomLeft - topLeft).Magnitude
 local cornerSize = mathmin(self.Settings.CornerSize, width / 3, height / 3)
 
 local points = {
-    -- Top Left Corner
-    {topLeft, topLeft + Vector2new(cornerSize, 0)}, -- Horizontal
-    {topLeft, topLeft + Vector2new(0, cornerSize)}, -- Vertical
+    {topLeft, topLeft + Vector2new(cornerSize, 0)},
+    {topLeft, topLeft + Vector2new(0, cornerSize)},
     
-    -- Top Right Corner
-    {topRight, topRight - Vector2new(cornerSize, 0)}, -- Horizontal
-    {topRight, topRight + Vector2new(0, cornerSize)}, -- Vertical
+    {topRight, topRight - Vector2new(cornerSize, 0)},
+    {topRight, topRight + Vector2new(0, cornerSize)},
     
-    -- Bottom Left Corner
-    {bottomLeft, bottomLeft + Vector2new(cornerSize, 0)}, -- Horizontal
-    {bottomLeft, bottomLeft - Vector2new(0, cornerSize)}, -- Vertical
+    {bottomLeft, bottomLeft + Vector2new(cornerSize, 0)},
+    {bottomLeft, bottomLeft - Vector2new(0, cornerSize)},
     
-    -- Bottom Right Corner
-    {bottomRight, bottomRight - Vector2new(cornerSize, 0)}, -- Horizontal
-    {bottomRight, bottomRight - Vector2new(0, cornerSize)}  -- Vertical
+    {bottomRight, bottomRight - Vector2new(cornerSize, 0)},
+    {bottomRight, bottomRight - Vector2new(0, cornerSize)}
 }
 
 return points
@@ -643,7 +588,6 @@ function ESP:GetSkeletonPoints(character)
 local points = {}
 local allOnScreen = true
 
--- Define the skeleton connections
 local connections = {
     {"Head", "Neck" or "UpperTorso" or "Torso"},
     {"Neck" or "UpperTorso" or "Torso", "UpperTorso" or "Torso"},
@@ -729,11 +673,9 @@ if not allOnScreen then return nil end
 return points
 end
 
--- Function to check if a character is invisible
 function ESP:IsCharacterInvisible(character)
 if not character then return false end
 
--- Check if any parts are visible
 for _, part in pairs(character:GetChildren()) do
     if part:IsA("BasePart") and part.Transparency < 0.9 then
         return false
@@ -743,7 +685,6 @@ end
 return true
 end
 
--- Drawing Functions
 function ESP:CreateDrawing(type, properties)
 local drawing = Drawingnew(type)
 
@@ -777,7 +718,6 @@ end
 self.Drawings = {}
 end
 
--- Draw dashed line
 function ESP:DrawDashedLine(from, to, dashSize, gapSize, color, thickness, transparency, zIndex)
 local direction = (to - from).Unit
 local distance = (to - from).Magnitude
@@ -806,7 +746,6 @@ end
 return lines
 end
 
--- ESP Functions
 function ESP:CreatePlayerESP(player)
 if not player or player == LocalPlayer then return end
 
@@ -959,7 +898,6 @@ local playerData = {
     }
 }
 
--- Create corner box lines
 for i = 1, 8 do
     playerData.Drawings.BoxCorners[i] = {
         Line = self:CreateDrawing("Line", {
@@ -979,7 +917,6 @@ for i = 1, 8 do
     }
 end
 
--- Create 3D box lines
 for i = 1, 12 do
     playerData.Drawings.Box3D[i] = {
         Line = self:CreateDrawing("Line", {
@@ -999,7 +936,6 @@ for i = 1, 12 do
     }
 end
 
--- Create skeleton lines
 for i = 1, 15 do
     playerData.Drawings.Skeleton[i] = {
         Line = self:CreateDrawing("Line", {
@@ -1019,7 +955,6 @@ for i = 1, 15 do
     }
 end
 
--- Create hitbox markers
 for i = 1, 10 do
     playerData.Drawings.Hitbox[i] = self:CreateDrawing("Circle", {
         Visible = false,
@@ -1078,14 +1013,12 @@ local head = FindFirstChild(character, "Head")
 
 if not (humanoid and hrp and head) then return end
 
--- Check if player should be rendered
 if self.Settings.IgnoreDead and humanoid.Health <= 0 then return end
 if self.Settings.IgnoreInvisible and self:IsCharacterInvisible(character) then return end
 if self:IsBlacklisted(player) then return end
 if self.Settings.Whitelist and #self.Settings.Whitelist > 0 and not self:IsWhitelisted(player) then return end
 if self:IsFriend(player) then return end
 
--- Get player position and check distance
 local position = hrp.Position
 local distance = self:GetDistance(position)
 
@@ -1112,21 +1045,17 @@ if distance > self.Settings.MaxDistance then
     return
 end
 
--- Check visibility
 local isVisible = self:IsVisible(character, head)
 local transparency = self:CalculateTransparency(distance)
 if self.Settings.VisibilityFade and not isVisible then
     transparency = transparency * 0.5
 end
 
--- Get player color
 local color = self:GetPlayerColor(player)
 
--- Update box ESP
 if self.Settings.BoxEnabled then
     local boxCorners = self:GetBoxCorners(character)
     
-    -- Hide all box types first
     playerData.Drawings.Box.Visible = false
     playerData.Drawings.BoxOutline.Visible = false
     playerData.Drawings.BoxFill.Visible = false
@@ -1192,13 +1121,9 @@ if self.Settings.BoxEnabled then
             local corners3D = self:Get3DBoxCorners(character)
             
             if corners3D then
-                -- Define the 12 edges of a 3D box
                 local edges = {
-                    -- Top square
                     {1, 2}, {2, 4}, {4, 3}, {3, 1},
-                    -- Bottom square
                     {5, 6}, {6, 8}, {8, 7}, {7, 5},
-                    -- Connecting lines
                     {1, 5}, {2, 6}, {3, 7}, {4, 8}
                 }
                 
@@ -1237,7 +1162,6 @@ else
     end
 end
 
--- Update name ESP
 if self.Settings.NameEnabled then
     local headPos, onScreen, depth = self:WorldToScreen(head.Position)
     local boxCorners = self:GetBoxCorners(character)
@@ -1266,7 +1190,6 @@ else
     playerData.Drawings.Name.Visible = false
 end
 
--- Update distance ESP
 if self.Settings.DistanceEnabled then
     local headPos, onScreen, depth = self:WorldToScreen(head.Position)
     local boxCorners = self:GetBoxCorners(character)
@@ -1295,7 +1218,6 @@ else
     playerData.Drawings.Distance.Visible = false
 end
 
--- Update health ESP
 if self.Settings.HealthEnabled then
     local boxCorners = self:GetBoxCorners(character)
     
@@ -1346,7 +1268,7 @@ if self.Settings.HealthEnabled then
                 topLeft.Y + self.Settings.HealthYOffset
             )
             playerData.Drawings.HealthBarOutline.Size = Vector2new(barWidth, boxSize.Y)
-        else -- Horizontal
+        else
             local barWidth = boxSize.X * healthPercent
             local barHeight = self.Settings.HealthBarThickness
             local healthPosition
@@ -1393,7 +1315,6 @@ else
     playerData.Drawings.HealthBarOutline.Visible = false
 end
 
--- Update tracer ESP
 if self.Settings.TracerEnabled then
     local hrpPos, onScreen, depth = self:WorldToScreen(hrp.Position)
     
@@ -1408,7 +1329,6 @@ if self.Settings.TracerEnabled then
             from = UserInputService:GetMouseLocation() + Vector2new(self.Settings.TracerXOffset, self.Settings.TracerYOffset)
         end
         
-        -- Clear any existing dashed tracers
         for _, line in pairs(playerData.Drawings.TracerDashed) do
             self:RemoveDrawing(line)
         end
@@ -1464,7 +1384,6 @@ else
     end
 end
 
--- Update head dot ESP
 if self.Settings.HeadDotEnabled then
     local headPos, onScreen, depth = self:WorldToScreen(head.Position)
     
@@ -1504,7 +1423,6 @@ else
     playerData.Drawings.HeadDotOutline.Visible = false
 end
 
--- Update tool ESP
 if self.Settings.ToolEnabled then
     local headPos, onScreen, depth = self:WorldToScreen(head.Position)
     local boxCorners = self:GetBoxCorners(character)
@@ -1532,7 +1450,6 @@ else
     playerData.Drawings.Tool.Visible = false
 end
 
--- Update state ESP
 if self.Settings.StateEnabled then
     local headPos, onScreen, depth = self:WorldToScreen(head.Position)
     local boxCorners = self:GetBoxCorners(character)
@@ -1578,7 +1495,6 @@ else
     playerData.Drawings.State.Visible = false
 end
 
--- Update aim point ESP
 if self.Settings.AimPointEnabled then
     local aimPart = FindFirstChild(character, "Head") or FindFirstChild(character, "HumanoidRootPart")
     
@@ -1625,11 +1541,9 @@ else
     playerData.Drawings.AimPointOutline.Visible = false
 end
 
--- Update skeleton ESP
 if self.Settings.SkeletonEnabled then
     local skeletonPoints = self:GetSkeletonPoints(character)
     
-    -- Clear any existing dashed skeleton lines
     for _, line in pairs(playerData.Drawings.SkeletonDashed) do
         self:RemoveDrawing(line)
     end
@@ -1656,13 +1570,11 @@ if self.Settings.SkeletonEnabled then
                 end
             end
             
-            -- Hide unused skeleton lines
             for i = #skeletonPoints + 1, #playerData.Drawings.Skeleton do
                 playerData.Drawings.Skeleton[i].Line.Visible = false
                 playerData.Drawings.Skeleton[i].Outline.Visible = false
             end
         elseif self.Settings.SkeletonStyle == "Dashed" or self.Settings.SkeletonStyle == "Dotted" then
-            -- Hide regular skeleton lines
             for i = 1, #playerData.Drawings.Skeleton do
                 playerData.Drawings.Skeleton[i].Line.Visible = false
                 playerData.Drawings.Skeleton[i].Outline.Visible = false
@@ -1705,7 +1617,6 @@ else
     end
 end
 
--- Update hitbox ESP
 if self.Settings.HitboxEnabled then
     local hitboxPoints = self:GetHitboxPoints(character)
     
@@ -1719,7 +1630,6 @@ if self.Settings.HitboxEnabled then
             end
         end
         
-        -- Hide unused hitbox points
         for i = #hitboxPoints + 1, #playerData.Drawings.Hitbox do
             playerData.Drawings.Hitbox[i].Visible = false
         end
@@ -1735,19 +1645,16 @@ else
 end
 end
 
--- Object ESP Functions
 function ESP:CreateObjectESP(object, customSettings)
 if not object then return end
 
 local objectId = tostring(object:GetFullName())
 
--- Create default settings for the object
 local settings = {}
 for key, value in pairs(self.Settings) do
     settings[key] = value
 end
 
--- Apply custom settings if provided
 if customSettings then
     for key, value in pairs(customSettings) do
         settings[key] = value
@@ -1823,7 +1730,6 @@ local objectData = {
     }
 }
 
--- Create corner box lines
 for i = 1, 8 do
     objectData.Drawings.BoxCorners[i] = {
         Line = self:CreateDrawing("Line", {
@@ -1843,7 +1749,6 @@ for i = 1, 8 do
     }
 end
 
--- Create 3D box lines
 for i = 1, 12 do
     objectData.Drawings.Box3D[i] = {
         Line = self:CreateDrawing("Line", {
@@ -1902,7 +1807,6 @@ local objectData = self.Objects[objectId]
 
 if not objectData then return end
 
--- Get object position
 local position
 if object:IsA("Model") then
     local primaryPart = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
@@ -1914,7 +1818,6 @@ else
     return
 end
 
--- Check distance
 local distance = self:GetDistance(position)
 if distance > objectData.Settings.MaxDistance then
     for _, drawing in pairs(objectData.Drawings) do
@@ -1939,14 +1842,11 @@ if distance > objectData.Settings.MaxDistance then
     return
 end
 
--- Calculate transparency based on distance
 local transparency = self:CalculateTransparency(distance)
 
--- Update box ESP
 if objectData.Settings.BoxEnabled then
     local boxCorners = self:GetBoxCorners(object)
     
-    -- Hide all box types first
     objectData.Drawings.Box.Visible = false
     objectData.Drawings.BoxOutline.Visible = false
     objectData.Drawings.BoxFill.Visible = false
@@ -2012,13 +1912,9 @@ if objectData.Settings.BoxEnabled then
             local corners3D = self:Get3DBoxCorners(object)
             
             if corners3D then
-                -- Define the 12 edges of a 3D box
                 local edges = {
-                    -- Top square
                     {1, 2}, {2, 4}, {4, 3}, {3, 1},
-                    -- Bottom square
                     {5, 6}, {6, 8}, {8, 7}, {7, 5},
-                    -- Connecting lines
                     {1, 5}, {2, 6}, {3, 7}, {4, 8}
                 }
                 
@@ -2057,7 +1953,6 @@ else
     end
 end
 
--- Update name ESP
 if objectData.Settings.NameEnabled then
     local screenPos, onScreen, depth = self:WorldToScreen(position)
     local boxCorners = self:GetBoxCorners(object)
@@ -2085,7 +1980,6 @@ else
     objectData.Drawings.Name.Visible = false
 end
 
--- Update distance ESP
 if objectData.Settings.DistanceEnabled then
     local screenPos, onScreen, depth = self:WorldToScreen(position)
     local boxCorners = self:GetBoxCorners(object)
@@ -2113,7 +2007,6 @@ else
     objectData.Drawings.Distance.Visible = false
 end
 
--- Update tracer ESP
 if objectData.Settings.TracerEnabled then
     local screenPos, onScreen, depth = self:WorldToScreen(position)
     
@@ -2128,7 +2021,6 @@ if objectData.Settings.TracerEnabled then
             from = UserInputService:GetMouseLocation() + Vector2new(objectData.Settings.TracerXOffset, objectData.Settings.TracerYOffset)
         end
         
-        -- Clear any existing dashed tracers
         for _, line in pairs(objectData.Drawings.TracerDashed) do
             self:RemoveDrawing(line)
         end
@@ -2185,9 +2077,7 @@ else
 end
 end
 
--- Main Functions
 function ESP:Init()
--- Create connections
 self.Connections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
     self:CreatePlayerESP(player)
 end)
@@ -2199,19 +2089,16 @@ end)
 self.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
     if not self.Enabled then return end
     
-    -- Update rainbow color and pulse
     if self.Settings.RainbowMode then
         self._rainbow = (self._rainbow + self.Settings.RainbowSpeed * 0.01) % 1
     end
     
     self._pulse = (self._pulse + 0.05) % (mathpi * 2)
     
-    -- Update player ESP
     for player, playerData in pairs(self.Players) do
         self:UpdatePlayerESP(player)
     end
     
-    -- Update object ESP
     for objectId, objectData in pairs(self.Objects) do
         if objectData.Object and objectData.Object.Parent then
             self:UpdateObjectESP(objectData.Object)
@@ -2291,7 +2178,6 @@ self.Connections.InputBegan = UserInputService.InputBegan:Connect(function(input
     end
 end)
 
--- Initialize existing players
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         self:CreatePlayerESP(player)
@@ -2302,22 +2188,18 @@ return self
 end
 
 function ESP:Destroy()
--- Disconnect all connections
 for _, connection in pairs(self.Connections) do
     connection:Disconnect()
 end
 
--- Remove all drawings
 self:ClearDrawings()
 
--- Clear tables
 self.Connections = {}
 self.Players = {}
 self.Objects = {}
 self._transitions = {}
 end
 
--- API Functions
 function ESP:Toggle(enabled)
 if enabled ~= nil then
     self.Enabled = enabled
@@ -2610,7 +2492,6 @@ self.Settings.HeadDotThickness = thickness
 return thickness
 end
 
--- Position customization functions
 function ESP:SetBoxPadding(padding)
 if type(padding) == "number" then
     self.Settings.BoxPadding = Vector3new(padding, padding, padding)
@@ -2620,7 +2501,6 @@ end
 return self.Settings.BoxPadding
 end
 
--- Position setting functions
 function ESP:SetNamePosition(position, xOffset, yOffset)
 self.Settings.NamePosition = position
 if xOffset then self.Settings.NameXOffset = xOffset end
@@ -2674,7 +2554,6 @@ if yOffset then self.Settings.AimPointYOffset = yOffset end
 return Vector2new(self.Settings.AimPointXOffset, self.Settings.AimPointYOffset)
 end
 
--- New API Functions for Direct Object Targeting
 function ESP:Add(object, options)
 if not object then return end
 
@@ -2747,8 +2626,17 @@ customSettings.TracerEnabled = true
 return self:Add(object, customSettings)
 end
 
--- Create and return the ESP instance
-local espLib = ESP:Init()
+function ESP:AddMultiple(objects, options)
+if not objects then return end
 
--- Return the ESP library
+local results = {}
+
+for _, object in ipairs(objects) do
+    table.insert(results, self:Add(object, options))
+end
+
+return results
+end
+
+local espLib = ESP:Init()
 return espLib
