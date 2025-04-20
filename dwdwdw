@@ -569,6 +569,20 @@ function ESP:GetHitboxPoints(character)
     return points
 end
 
+-- Function to check if a character is invisible
+function ESP:IsCharacterInvisible(character)
+    if not character then return false end
+    
+    -- Check if any parts are visible
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Transparency < 0.9 then
+            return false
+        end
+    end
+    
+    return true
+end
+
 -- Drawing Functions
 function ESP:CreateDrawing(type, properties)
     local drawing = Drawingnew(type)
@@ -833,7 +847,7 @@ function ESP:UpdatePlayerESP(player)
     
     -- Check if player should be rendered
     if self.Settings.IgnoreDead and humanoid.Health <= 0 then return end
-    if self.Settings.IgnoreInvisible and character.Transparency >= 0.9 then return end
+    if self.Settings.IgnoreInvisible and self:IsCharacterInvisible(character) then return end
     if self:IsBlacklisted(player) then return end
     if self.Settings.Whitelist and #self.Settings.Whitelist > 0 and not self:IsWhitelisted(player) then return end
     if self:IsFriend(player) then return end
