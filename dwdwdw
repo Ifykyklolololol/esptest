@@ -1,3 +1,47 @@
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Constants stuff
+local Vector2new = Vector2.new
+local Vector3new = Vector3.new
+local CFramenew = CFrame.new
+local Color3new = Color3.new
+local Color3fromRGB = Color3.fromRGB
+local Color3fromHSV = Color3.fromHSV
+local Drawingnew = Drawing.new
+local WorldToViewportPoint = Camera.WorldToViewportPoint
+local WorldToScreenPoint = Camera.WorldToScreenPoint
+local RaycastParamsnew = RaycastParams.new
+local EnumRaycastFilterTypeBlacklist = Enum.RaycastFilterType.Blacklist
+local FindFirstChild = game.FindFirstChild
+local IsA = game.IsA
+local taskwait = task.wait
+local taskspawn = task.spawn
+local mathfloor = math.floor
+local mathabs = math.abs
+local mathclamp = math.clamp
+local mathcos = math.cos
+local mathsin = math.sin
+local mathrad = math.rad
+local mathhuge = math.huge
+local mathmin = math.min
+local mathmax = math.max
+local mathpi = math.pi
+local tableinsert = table.insert
+local tableremove = table.remove
+local tablefind = table.find
+local stringsub = string.sub
+local stringlen = string.len
+local stringformat = string.format
+local stringlower = string.lower
+
 local ESP = {
     Enabled = true,
     Players = {},
