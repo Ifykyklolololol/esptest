@@ -1,0 +1,1584 @@
+--[[
+    Advanced Roblox ESP Library with Direct Object Targeting
+    Features:
+    - All previous ESP features
+    - Direct syntax: game.workspace.object:ESP.Box
+    - Support for any instance type
+    - Customizable per-object settings
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Constants
+local Vector2new = Vector2.new
+local Vector3new = Vector3.new
+local CFramenew = CFrame.new
+local Color3new = Color3.new
+local Color3fromRGB = Color3.fromRGB
+local Color3fromHSV = Color3.fromHSV
+local Drawingnew = Drawing.new
+local WorldToViewportPoint = Camera.WorldToViewportPoint
+local WorldToScreenPoint = Camera.WorldToScreenPoint
+local RaycastParamsnew = RaycastParams.new
+local EnumRaycastFilterTypeBlacklist = Enum.RaycastFilterType.Blacklist
+local FindFirstChild = game.FindFirstChild
+local IsA = game.IsA
+local taskwait = task.wait
+local taskspawn = task.spawn
+local mathfloor = math.floor
+local mathabs = math.abs
+local mathclamp = math.clamp
+local mathcos = math.cos
+local mathsin = math.sin
+local mathrad = math.rad
+local mathhuge = math.huge
+local mathmin = math.min
+local mathmax = math.max
+local tableinsert = table.insert
+local tableremove = table.remove
+local tablefind = table.find
+local stringsub = string.sub
+local stringlen = string.len
+local stringformat = string.format
+local stringlower = string.lower
+
+-- ESP Library
+local ESP = {
+    Enabled = true,
+    Drawings = {},
+    Players = {},
+    Objects = {},
+    Connections = {},
+    
+    -- Settings
+    Settings = {
+        -- General
+        RefreshRate = 0.01,
+        MaxDistance = 1000,
+        TeamCheck = false,
+        VisibilityCheck = false,
+        IgnoreInvisible = true,
+        IgnoreDead = true,
+        IgnoreNPCs = false,
+        IgnoreFriends = false,
+        UseDisplayName = false,
+        AlwaysOnTop = true,
+        DrawOnTop = true,
+        ZIndex = 1,
+        RenderPriority = 1,
+        FadeWithDistance = true,
+        VisibilityFade = true,
+        
+        -- Box ESP
+        BoxEnabled = true,
+        BoxType = "2D", -- "2D", "3D", "Corner", "Filled", "Rounded", "Gradient"
+        BoxColor = Color3fromRGB(255, 255, 255),
+        BoxTransparency = 0.7,
+        BoxThickness = 1,
+        BoxFilled = false,
+        BoxFilledTransparency = 0.5,
+        BoxOutline = true,
+        BoxOutlineColor = Color3fromRGB(0, 0, 0),
+        BoxOutlineTransparency = 0.5,
+        BoxRoundedRadius = 5,
+        BoxGradientColor = Color3fromRGB(0, 0, 255),
+        UsePartBoundingBox = false,
+        
+        -- Name Tags
+        NameEnabled = true,
+        NameColor = Color3fromRGB(255, 255, 255),
+        NameTransparency = 0.7,
+        NameOutline = true,
+        NameOutlineColor = Color3fromRGB(0, 0, 0),
+        NameOutlineTransparency = 0.5,
+        NameSize = 14,
+        NameFont = 2, -- Drawing.Fonts.UI
+        NameOffset = Vector2new(0, -15),
+        NameBackground = true,
+        NameBackgroundColor = Color3fromRGB(0, 0, 0),
+        NameBackgroundTransparency = 0.5,
+        
+        -- Distance
+        DistanceEnabled = true,
+        DistanceColor = Color3fromRGB(255, 255, 255),
+        DistanceTransparency = 0.7,
+        DistanceOutline = true,
+        DistanceOutlineColor = Color3fromRGB(0, 0, 0),
+        DistanceOutlineTransparency = 0.5,
+        DistanceSize = 13,
+        DistanceFont = 2, -- Drawing.Fonts.UI
+        DistanceOffset = Vector2new(0, 15),
+        DistanceTextSize = true, -- Adjust text size based on distance
+        
+        -- Health Bar
+        HealthEnabled = true,
+        HealthType = "Vertical", -- "Vertical", "Horizontal"
+        HealthColor = Color3fromRGB(0, 255, 0),
+        HealthTransparency = 0.7,
+        HealthOutline = true,
+        HealthOutlineColor = Color3fromRGB(0, 0, 0),
+        HealthOutlineTransparency = 0.5,
+        HealthThickness = 1,
+        HealthOffset = Vector2new(-5, 0),
+        HealthBarThickness = 2,
+        
+        -- Tracers
+        TracerEnabled = true,
+        TracerColor = Color3fromRGB(255, 255, 255),
+        TracerTransparency = 0.7,
+        TracerThickness = 1,
+        TracerOutline = true,
+        TracerOutlineColor = Color3fromRGB(0, 0, 0),
+        TracerOutlineTransparency = 0.5,
+        TracerOrigin = "Bottom", -- "Bottom", "Center", "Mouse"
+        
+        -- Chams
+        ChamsEnabled = true,
+        ChamsColor = Color3fromRGB(255, 0, 0),
+        ChamsTransparency = 0.5,
+        ChamsOutlineColor = Color3fromRGB(0, 0, 0),
+        ChamsOutlineTransparency = 0.5,
+        ChamsUseTeamColor = false,
+        ChamsVisibleOnly = false,
+        ChamsHighlightMode = "Outline", -- "Outline", "Fill"
+        
+        -- Skeleton ESP
+        SkeletonEnabled = true,
+        SkeletonColor = Color3fromRGB(255, 255, 255),
+        SkeletonTransparency = 0.7,
+        SkeletonThickness = 1,
+        SkeletonOutline = true,
+        SkeletonOutlineColor = Color3fromRGB(0, 0, 0),
+        SkeletonOutlineTransparency = 0.5,
+        
+        -- Head Dot
+        HeadDotEnabled = true,
+        HeadDotColor = Color3fromRGB(255, 0, 0),
+        HeadDotTransparency = 0.7,
+        HeadDotThickness = 1,
+        HeadDotRadius = 3,
+        HeadDotFilled = true,
+        HeadDotOutline = true,
+        HeadDotOutlineColor = Color3fromRGB(0, 0, 0),
+        HeadDotOutlineTransparency = 0.5,
+        
+        -- Tool ESP
+        ToolEnabled = true,
+        ToolColor = Color3fromRGB(255, 255, 255),
+        ToolTransparency = 0.7,
+        ToolOutline = true,
+        ToolOutlineColor = Color3fromRGB(0, 0, 0),
+        ToolOutlineTransparency = 0.5,
+        ToolSize = 13,
+        ToolFont = 2, -- Drawing.Fonts.UI
+        ToolOffset = Vector2new(0, 30),
+        
+        -- State Display
+        StateEnabled = true,
+        StateColor = Color3fromRGB(255, 255, 255),
+        StateTransparency = 0.7,
+        StateOutline = true,
+        StateOutlineColor = Color3fromRGB(0, 0, 0),
+        StateOutlineTransparency = 0.5,
+        StateSize = 13,
+        StateFont = 2, -- Drawing.Fonts.UI
+        StateOffset = Vector2new(0, 45),
+        
+        -- AimPoint
+        AimPointEnabled = true,
+        AimPointColor = Color3fromRGB(255, 0, 0),
+        AimPointTransparency = 0.7,
+        AimPointThickness = 1,
+        AimPointRadius = 3,
+        AimPointFilled = true,
+        AimPointOutline = true,
+        AimPointOutlineColor = Color3fromRGB(0, 0, 0),
+        AimPointOutlineTransparency = 0.5,
+        
+        -- Hitbox Markers
+        HitboxEnabled = true,
+        HitboxColor = Color3fromRGB(255, 0, 0),
+        HitboxTransparency = 0.7,
+        HitboxThickness = 1,
+        UseCustomHitboxPoints = false,
+        CustomHitboxPoints = {
+            Head = true,
+            Torso = true,
+            Arms = true,
+            Legs = true
+        },
+        
+        -- Dropped Items ESP
+        DroppedItemsEnabled = true,
+        DroppedItemsColor = Color3fromRGB(255, 255, 0),
+        DroppedItemsTransparency = 0.7,
+        DroppedItemsOutline = true,
+        DroppedItemsOutlineColor = Color3fromRGB(0, 0, 0),
+        DroppedItemsOutlineTransparency = 0.5,
+        DroppedItemsSize = 13,
+        DroppedItemsFont = 2, -- Drawing.Fonts.UI
+        
+        -- Vehicle ESP
+        VehicleEnabled = true,
+        VehicleColor = Color3fromRGB(0, 255, 255),
+        VehicleTransparency = 0.7,
+        VehicleOutline = true,
+        VehicleOutlineColor = Color3fromRGB(0, 0, 0),
+        VehicleOutlineTransparency = 0.5,
+        VehicleSize = 13,
+        VehicleFont = 2, -- Drawing.Fonts.UI
+        
+        -- Objective ESP
+        ObjectiveEnabled = true,
+        ObjectiveColor = Color3fromRGB(255, 255, 0),
+        ObjectiveTransparency = 0.7,
+        ObjectiveOutline = true,
+        ObjectiveOutlineColor = Color3fromRGB(0, 0, 0),
+        ObjectiveOutlineTransparency = 0.5,
+        ObjectiveSize = 13,
+        ObjectiveFont = 2, -- Drawing.Fonts.UI
+        
+        -- Camera ESP
+        CameraEnabled = true,
+        CameraColor = Color3fromRGB(255, 0, 255),
+        CameraTransparency = 0.7,
+        CameraOutline = true,
+        CameraOutlineColor = Color3fromRGB(0, 0, 0),
+        CameraOutlineTransparency = 0.5,
+        CameraSize = 13,
+        CameraFont = 2, -- Drawing.Fonts.UI
+        
+        -- Colors
+        TeamColor = true,
+        EnemyColor = Color3fromRGB(255, 0, 0),
+        TeamColorMode = "Team", -- "Team", "Custom"
+        RainbowMode = false,
+        RainbowSpeed = 1,
+        
+        -- Keybinds
+        ToggleKey = Enum.KeyCode.RightShift,
+        BoxToggleKey = Enum.KeyCode.One,
+        NameToggleKey = Enum.KeyCode.Two,
+        DistanceToggleKey = Enum.KeyCode.Three,
+        HealthToggleKey = Enum.KeyCode.Four,
+        TracerToggleKey = Enum.KeyCode.Five,
+        ChamsToggleKey = Enum.KeyCode.Six,
+        SkeletonToggleKey = Enum.KeyCode.Seven,
+        HeadDotToggleKey = Enum.KeyCode.Eight,
+        
+        -- Lists
+        Whitelist = {},
+        Blacklist = {}
+    },
+    
+    -- Internal
+    _rainbow = 0
+}
+
+-- Utility Functions
+function ESP:IsAlive(player)
+    local character = player.Character
+    local humanoid = character and FindFirstChild(character, "Humanoid")
+    return character and humanoid and humanoid.Health > 0
+end
+
+function ESP:IsVisible(character, part)
+    if not self.Settings.VisibilityCheck then return true end
+    
+    local origin = Camera.CFrame.Position
+    local target = part.Position
+    local direction = (target - origin).Unit * self.Settings.MaxDistance
+    
+    local raycastParams = RaycastParamsnew()
+    raycastParams.FilterType = EnumRaycastFilterTypeBlacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, character}
+    
+    local result = Workspace:Raycast(origin, direction, raycastParams)
+    return result == nil
+end
+
+function ESP:GetTeam(player)
+    return player.Team
+end
+
+function ESP:IsTeammate(player)
+    if not self.Settings.TeamCheck then return false end
+    
+    local team = self:GetTeam(player)
+    local localTeam = self:GetTeam(LocalPlayer)
+    
+    return team and localTeam and team == localTeam
+end
+
+function ESP:IsFriend(player)
+    if not self.Settings.IgnoreFriends then return false end
+    return LocalPlayer:IsFriendsWith(player.UserId)
+end
+
+function ESP:IsWhitelisted(player)
+    return tablefind(self.Settings.Whitelist, player.Name) or tablefind(self.Settings.Whitelist, player.UserId)
+end
+
+function ESP:IsBlacklisted(player)
+    return tablefind(self.Settings.Blacklist, player.Name) or tablefind(self.Settings.Blacklist, player.UserId)
+end
+
+function ESP:GetPlayerColor(player)
+    if self.Settings.RainbowMode then
+        return Color3fromHSV(self._rainbow, 1, 1)
+    end
+    
+    if self:IsTeammate(player) then
+        if self.Settings.TeamColorMode == "Team" and player.Team and player.Team.TeamColor then
+            return player.Team.TeamColor.Color
+        else
+            return self.Settings.TeamColor and Color3fromRGB(0, 255, 0) or self.Settings.BoxColor
+        end
+    else
+        return self.Settings.EnemyColor
+    end
+end
+
+function ESP:GetDistance(position)
+    return (Camera.CFrame.Position - position).Magnitude
+end
+
+function ESP:GetDistanceText(distance)
+    if distance < 10 then
+        return stringformat("%.1f m", distance)
+    else
+        return stringformat("%d m", mathfloor(distance))
+    end
+end
+
+function ESP:CalculateTransparency(distance)
+    if not self.Settings.FadeWithDistance then return 1 end
+    
+    local maxDistance = self.Settings.MaxDistance
+    return mathclamp(1 - (distance / maxDistance), 0.1, 1)
+end
+
+function ESP:CalculateTextSize(distance)
+    if not self.Settings.DistanceTextSize then return self.Settings.NameSize end
+    
+    local maxDistance = self.Settings.MaxDistance
+    local minSize = 8
+    local maxSize = self.Settings.NameSize
+    
+    return mathclamp(maxSize - (distance / maxDistance) * (maxSize - minSize), minSize, maxSize)
+end
+
+function ESP:WorldToScreen(position)
+    local screenPosition, onScreen = WorldToViewportPoint(Camera, position)
+    return Vector2new(screenPosition.X, screenPosition.Y), onScreen, screenPosition.Z
+end
+
+function ESP:GetBoxCorners(object)
+    local size, position
+    
+    if object:IsA("Model") then
+        local hrp = FindFirstChild(object, "HumanoidRootPart") or object:FindFirstChildWhichIsA("BasePart")
+        if not hrp then return nil end
+        
+        size = self.Settings.UsePartBoundingBox and object:GetExtentsSize() or Vector3new(4, 5, 1)
+        position = hrp.Position
+    elseif object:IsA("BasePart") then
+        size = object.Size
+        position = object.Position
+    else
+        return nil
+    end
+    
+    local cf = CFramenew(position)
+    
+    local tl = cf * CFramenew(-size.X/2, size.Y/2, 0)
+    local tr = cf * CFramenew(size.X/2, size.Y/2, 0)
+    local bl = cf * CFramenew(-size.X/2, -size.Y/2, 0)
+    local br = cf * CFramenew(size.X/2, -size.Y/2, 0)
+    
+    local tlp, tls, _ = self:WorldToScreen(tl.Position)
+    local trp, trs, _ = self:WorldToScreen(tr.Position)
+    local blp, bls, _ = self:WorldToScreen(bl.Position)
+    local brp, brs, _ = self:WorldToScreen(br.Position)
+    
+    if not (tls and trs and bls and brs) then return nil end
+    
+    return {
+        TopLeft = tlp,
+        TopRight = trp,
+        BottomLeft = blp,
+        BottomRight = brp
+    }
+end
+
+function ESP:Get3DBoxCorners(object)
+    local size, position
+    
+    if object:IsA("Model") then
+        local hrp = FindFirstChild(object, "HumanoidRootPart") or object:FindFirstChildWhichIsA("BasePart")
+        if not hrp then return nil end
+        
+        size = self.Settings.UsePartBoundingBox and object:GetExtentsSize() or Vector3new(4, 5, 1)
+        position = hrp.Position
+    elseif object:IsA("BasePart") then
+        size = object.Size
+        position = object.Position
+    else
+        return nil
+    end
+    
+    local cf = CFramenew(position)
+    
+    local corners = {
+        -- Top Front
+        cf * CFramenew(-size.X/2, size.Y/2, -size.Z/2),
+        cf * CFramenew(size.X/2, size.Y/2, -size.Z/2),
+        -- Top Back
+        cf * CFramenew(-size.X/2, size.Y/2, size.Z/2),
+        cf * CFramenew(size.X/2, size.Y/2, size.Z/2),
+        -- Bottom Front
+        cf * CFramenew(-size.X/2, -size.Y/2, -size.Z/2),
+        cf * CFramenew(size.X/2, -size.Y/2, -size.Z/2),
+        -- Bottom Back
+        cf * CFramenew(-size.X/2, -size.Y/2, size.Z/2),
+        cf * CFramenew(size.X/2, -size.Y/2, size.Z/2)
+    }
+    
+    local screenCorners = {}
+    local allOnScreen = true
+    
+    for i, corner in ipairs(corners) do
+        local screenPosition, onScreen, _ = self:WorldToScreen(corner.Position)
+        screenCorners[i] = screenPosition
+        
+        if not onScreen then
+            allOnScreen = false
+        end
+    end
+    
+    if not allOnScreen then return nil end
+    
+    return screenCorners
+end
+
+function ESP:GetSkeletonPoints(character)
+    local points = {}
+    local allOnScreen = true
+    
+    -- Define the skeleton connections
+    local connections = {
+        {"Head", "Neck" or "UpperTorso" or "Torso"},
+        {"Neck" or "UpperTorso" or "Torso", "UpperTorso" or "Torso"},
+        {"UpperTorso" or "Torso", "LowerTorso" or "Torso"},
+        {"LowerTorso" or "Torso", "RightUpperLeg" or "Right Leg"},
+        {"LowerTorso" or "Torso", "LeftUpperLeg" or "Left Leg"},
+        {"RightUpperLeg" or "Right Leg", "RightLowerLeg" or "Right Leg"},
+        {"LeftUpperLeg" or "Left Leg", "LeftLowerLeg" or "Left Leg"},
+        {"RightLowerLeg" or "Right Leg", "RightFoot" or "Right Leg"},
+        {"LeftLowerLeg" or "Left Leg", "LeftFoot" or "Left Leg"},
+        {"UpperTorso" or "Torso", "RightUpperArm" or "Right Arm"},
+        {"UpperTorso" or "Torso", "LeftUpperArm" or "Left Arm"},
+        {"RightUpperArm" or "Right Arm", "RightLowerArm" or "Right Arm"},
+        {"LeftUpperArm" or "Left Arm", "LeftLowerArm" or "Left Arm"},
+        {"RightLowerArm" or "Right Arm", "RightHand" or "Right Arm"},
+        {"LeftLowerArm" or "Left Arm", "LeftHand" or "Left Arm"}
+    }
+    
+    for _, connection in ipairs(connections) do
+        local part1 = FindFirstChild(character, connection[1])
+        local part2 = FindFirstChild(character, connection[2])
+        
+        if part1 and part2 then
+            local p1, onScreen1, _ = self:WorldToScreen(part1.Position)
+            local p2, onScreen2, _ = self:WorldToScreen(part2.Position)
+            
+            if onScreen1 and onScreen2 then
+                tableinsert(points, {p1, p2})
+            else
+                allOnScreen = false
+            end
+        end
+    end
+    
+    if not allOnScreen then return nil end
+    
+    return points
+end
+
+function ESP:GetHitboxPoints(character)
+    local points = {}
+    local allOnScreen = true
+    
+    local hitboxParts = {
+        Head = FindFirstChild(character, "Head"),
+        Torso = FindFirstChild(character, "UpperTorso") or FindFirstChild(character, "Torso"),
+        Arms = {
+            FindFirstChild(character, "RightUpperArm") or FindFirstChild(character, "Right Arm"),
+            FindFirstChild(character, "LeftUpperArm") or FindFirstChild(character, "Left Arm")
+        },
+        Legs = {
+            FindFirstChild(character, "RightUpperLeg") or FindFirstChild(character, "Right Leg"),
+            FindFirstChild(character, "LeftUpperLeg") or FindFirstChild(character, "Left Leg")
+        }
+    }
+    
+    for partName, part in pairs(hitboxParts) do
+        if self.Settings.CustomHitboxPoints[partName] then
+            if type(part) == "table" then
+                for _, p in ipairs(part) do
+                    if p then
+                        local screenPos, onScreen, _ = self:WorldToScreen(p.Position)
+                        if onScreen then
+                            tableinsert(points, screenPos)
+                        else
+                            allOnScreen = false
+                        end
+                    end
+                end
+            elseif part then
+                local screenPos, onScreen, _ = self:WorldToScreen(part.Position)
+                if onScreen then
+                    tableinsert(points, screenPos)
+                else
+                    allOnScreen = false
+                end
+            end
+        end
+    end
+    
+    if not allOnScreen then return nil end
+    
+    return points
+end
+
+-- Drawing Functions
+function ESP:CreateDrawing(type, properties)
+    local drawing = Drawingnew(type)
+    
+    for property, value in pairs(properties) do
+        drawing[property] = value
+    end
+    
+    tableinsert(self.Drawings, drawing)
+    
+    return drawing
+end
+
+function ESP:RemoveDrawing(drawing)
+    if drawing then
+        drawing:Remove()
+        
+        for i, d in ipairs(self.Drawings) do
+            if d == drawing then
+                tableremove(self.Drawings, i)
+                break
+            end
+        end
+    end
+end
+
+function ESP:ClearDrawings()
+    for _, drawing in ipairs(self.Drawings) do
+        drawing:Remove()
+    end
+    
+    self.Drawings = {}
+end
+
+-- ESP Functions
+function ESP:CreatePlayerESP(player)
+    if not player or player == LocalPlayer then return end
+    
+    local playerData = {
+        Player = player,
+        Drawings = {
+            Box = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = self.Settings.BoxColor,
+                Thickness = self.Settings.BoxThickness,
+                Transparency = self.Settings.BoxTransparency,
+                Filled = self.Settings.BoxFilled,
+                ZIndex = self.Settings.ZIndex
+            }),
+            BoxOutline = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = self.Settings.BoxOutlineColor,
+                Thickness = self.Settings.BoxThickness + 2,
+                Transparency = self.Settings.BoxOutlineTransparency,
+                Filled = false,
+                ZIndex = self.Settings.ZIndex - 1
+            }),
+            BoxFill = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = self.Settings.BoxColor,
+                Transparency = self.Settings.BoxFilledTransparency,
+                Filled = true,
+                ZIndex = self.Settings.ZIndex - 2
+            }),
+            Name = self:CreateDrawing("Text", {
+                Visible = false,
+                Color = self.Settings.NameColor,
+                Transparency = self.Settings.NameTransparency,
+                Size = self.Settings.NameSize,
+                Center = true,
+                Outline = self.Settings.NameOutline,
+                OutlineColor = self.Settings.NameOutlineColor,
+                Font = self.Settings.NameFont,
+                ZIndex = self.Settings.ZIndex
+            }),
+            Distance = self:CreateDrawing("Text", {
+                Visible = false,
+                Color = self.Settings.DistanceColor,
+                Transparency = self.Settings.DistanceTransparency,
+                Size = self.Settings.DistanceSize,
+                Center = true,
+                Outline = self.Settings.DistanceOutline,
+                OutlineColor = self.Settings.DistanceOutlineColor,
+                Font = self.Settings.DistanceFont,
+                ZIndex = self.Settings.ZIndex
+            }),
+            HealthBar = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = self.Settings.HealthColor,
+                Thickness = self.Settings.HealthThickness,
+                Transparency = self.Settings.HealthTransparency,
+                Filled = true,
+                ZIndex = self.Settings.ZIndex
+            }),
+            HealthBarOutline = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = self.Settings.HealthOutlineColor,
+                Thickness = 1,
+                Transparency = self.Settings.HealthOutlineTransparency,
+                Filled = false,
+                ZIndex = self.Settings.ZIndex - 1
+            }),
+            Tracer = self:CreateDrawing("Line", {
+                Visible = false,
+                Color = self.Settings.TracerColor,
+                Thickness = self.Settings.TracerThickness,
+                Transparency = self.Settings.TracerTransparency,
+                ZIndex = self.Settings.ZIndex
+            }),
+            TracerOutline = self:CreateDrawing("Line", {
+                Visible = false,
+                Color = self.Settings.TracerOutlineColor,
+                Thickness = self.Settings.TracerThickness + 2,
+                Transparency = self.Settings.TracerOutlineTransparency,
+                ZIndex = self.Settings.ZIndex - 1
+            }),
+            HeadDot = self:CreateDrawing("Circle", {
+                Visible = false,
+                Color = self.Settings.HeadDotColor,
+                Thickness = self.Settings.HeadDotThickness,
+                Transparency = self.Settings.HeadDotTransparency,
+                NumSides = 30,
+                Filled = self.Settings.HeadDotFilled,
+                Radius = self.Settings.HeadDotRadius,
+                ZIndex = self.Settings.ZIndex
+            }),
+            HeadDotOutline = self:CreateDrawing("Circle", {
+                Visible = false,
+                Color = self.Settings.HeadDotOutlineColor,
+                Thickness = self.Settings.HeadDotThickness + 2,
+                Transparency = self.Settings.HeadDotOutlineTransparency,
+                NumSides = 30,
+                Filled = false,
+                Radius = self.Settings.HeadDotRadius,
+                ZIndex = self.Settings.ZIndex - 1
+            }),
+            Tool = self:CreateDrawing("Text", {
+                Visible = false,
+                Color = self.Settings.ToolColor,
+                Transparency = self.Settings.ToolTransparency,
+                Size = self.Settings.ToolSize,
+                Center = true,
+                Outline = self.Settings.ToolOutline,
+                OutlineColor = self.Settings.ToolOutlineColor,
+                Font = self.Settings.ToolFont,
+                ZIndex = self.Settings.ZIndex
+            }),
+            State = self:CreateDrawing("Text", {
+                Visible = false,
+                Color = self.Settings.StateColor,
+                Transparency = self.Settings.StateTransparency,
+                Size = self.Settings.StateSize,
+                Center = true,
+                Outline = self.Settings.StateOutline,
+                OutlineColor = self.Settings.StateOutlineColor,
+                Font = self.Settings.StateFont,
+                ZIndex = self.Settings.ZIndex
+            }),
+            AimPoint = self:CreateDrawing("Circle", {
+                Visible = false,
+                Color = self.Settings.AimPointColor,
+                Thickness = self.Settings.AimPointThickness,
+                Transparency = self.Settings.AimPointTransparency,
+                NumSides = 30,
+                Filled = self.Settings.AimPointFilled,
+                Radius = self.Settings.AimPointRadius,
+                ZIndex = self.Settings.ZIndex
+            }),
+            AimPointOutline = self:CreateDrawing("Circle", {
+                Visible = false,
+                Color = self.Settings.AimPointOutlineColor,
+                Thickness = self.Settings.AimPointThickness + 2,
+                Transparency = self.Settings.AimPointOutlineTransparency,
+                NumSides = 30,
+                Filled = false,
+                Radius = self.Settings.AimPointRadius,
+                ZIndex = self.Settings.ZIndex - 1
+            }),
+            Skeleton = {},
+            Hitbox = {}
+        }
+    }
+    
+    -- Create skeleton lines
+    for i = 1, 15 do
+        playerData.Drawings.Skeleton[i] = {
+            Line = self:CreateDrawing("Line", {
+                Visible = false,
+                Color = self.Settings.SkeletonColor,
+                Thickness = self.Settings.SkeletonThickness,
+                Transparency = self.Settings.SkeletonTransparency,
+                ZIndex = self.Settings.ZIndex
+            }),
+            Outline = self:CreateDrawing("Line", {
+                Visible = false,
+                Color = self.Settings.SkeletonOutlineColor,
+                Thickness = self.Settings.SkeletonThickness + 2,
+                Transparency = self.Settings.SkeletonOutlineTransparency,
+                ZIndex = self.Settings.ZIndex - 1
+            })
+        }
+    end
+    
+    -- Create hitbox markers
+    for i = 1, 10 do
+        playerData.Drawings.Hitbox[i] = self:CreateDrawing("Circle", {
+            Visible = false,
+            Color = self.Settings.HitboxColor,
+            Thickness = self.Settings.HitboxThickness,
+            Transparency = self.Settings.HitboxTransparency,
+            NumSides = 30,
+            Filled = true,
+            Radius = 2,
+            ZIndex = self.Settings.ZIndex
+        })
+    end
+    
+    self.Players[player] = playerData
+end
+
+function ESP:RemovePlayerESP(player)
+    local playerData = self.Players[player]
+    
+    if playerData then
+        for _, drawing in pairs(playerData.Drawings) do
+            if type(drawing) == "table" then
+                if drawing.Line then
+                    self:RemoveDrawing(drawing.Line)
+                    self:RemoveDrawing(drawing.Outline)
+                else
+                    for _, subDrawing in pairs(drawing) do
+                        if type(subDrawing) == "table" then
+                            self:RemoveDrawing(subDrawing.Line)
+                            self:RemoveDrawing(subDrawing.Outline)
+                        else
+                            self:RemoveDrawing(subDrawing)
+                        end
+                    end
+                end
+            else
+                self:RemoveDrawing(drawing)
+            end
+        end
+        
+        self.Players[player] = nil
+    end
+end
+
+-- Object ESP Functions
+function ESP:CreateObjectESP(object, customSettings)
+    if not object then return end
+    
+    local objectId = tostring(object:GetFullName())
+    
+    -- Create default settings for the object
+    local settings = {}
+    for key, value in pairs(self.Settings) do
+        settings[key] = value
+    end
+    
+    -- Apply custom settings if provided
+    if customSettings then
+        for key, value in pairs(customSettings) do
+            settings[key] = value
+        end
+    end
+    
+    local objectData = {
+        Object = object,
+        Settings = settings,
+        Drawings = {
+            Box = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = settings.BoxColor,
+                Thickness = settings.BoxThickness,
+                Transparency = settings.BoxTransparency,
+                Filled = settings.BoxFilled,
+                ZIndex = settings.ZIndex
+            }),
+            BoxOutline = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = settings.BoxOutlineColor,
+                Thickness = settings.BoxThickness + 2,
+                Transparency = settings.BoxOutlineTransparency,
+                Filled = false,
+                ZIndex = settings.ZIndex - 1
+            }),
+            BoxFill = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = settings.BoxColor,
+                Transparency = settings.BoxFilledTransparency,
+                Filled = true,
+                ZIndex = settings.ZIndex - 2
+            }),
+            Name = self:CreateDrawing("Text", {
+                Visible = false,
+                Color = settings.NameColor,
+                Transparency = settings.NameTransparency,
+                Size = settings.NameSize,
+                Center = true,
+                Outline = settings.NameOutline,
+                OutlineColor = settings.NameOutlineColor,
+                Font = settings.NameFont,
+                ZIndex = settings.ZIndex
+            }),
+            Distance = self:CreateDrawing("Text", {
+                Visible = false,
+                Color = settings.DistanceColor,
+                Transparency = settings.DistanceTransparency,
+                Size = settings.DistanceSize,
+                Center = true,
+                Outline = settings.DistanceOutline,
+                OutlineColor = settings.DistanceOutlineColor,
+                Font = settings.DistanceFont,
+                ZIndex = settings.ZIndex
+            }),
+            Tracer = self:CreateDrawing("Line", {
+                Visible = false,
+                Color = settings.TracerColor,
+                Thickness = settings.TracerThickness,
+                Transparency = settings.TracerTransparency,
+                ZIndex = settings.ZIndex
+            }),
+            TracerOutline = self:CreateDrawing("Line", {
+                Visible = false,
+                Color = settings.TracerOutlineColor,
+                Thickness = settings.TracerThickness + 2,
+                Transparency = settings.TracerOutlineTransparency,
+                ZIndex = settings.ZIndex - 1
+            })
+        }
+    }
+    
+    self.Objects[objectId] = objectData
+    return objectData
+end
+
+function ESP:RemoveObjectESP(object)
+    local objectId = tostring(object:GetFullName())
+    local objectData = self.Objects[objectId]
+    
+    if objectData then
+        for _, drawing in pairs(objectData.Drawings) do
+            if type(drawing) == "table" then
+                for _, subDrawing in pairs(drawing) do
+                    self:RemoveDrawing(subDrawing)
+                end
+            else
+                self:RemoveDrawing(drawing)
+            end
+        end
+        
+        self.Objects[objectId] = nil
+    end
+end
+
+function ESP:UpdateObjectESP(object)
+    local objectId = tostring(object:GetFullName())
+    local objectData = self.Objects[objectId]
+    
+    if not objectData then return end
+    
+    -- Get object position
+    local position
+    if object:IsA("Model") then
+        local primaryPart = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
+        if not primaryPart then return end
+        position = primaryPart.Position
+    elseif object:IsA("BasePart") then
+        position = object.Position
+    else
+        return
+    end
+    
+    -- Check distance
+    local distance = self:GetDistance(position)
+    if distance > objectData.Settings.MaxDistance then
+        for _, drawing in pairs(objectData.Drawings) do
+            drawing.Visible = false
+        end
+        return
+    end
+    
+    -- Calculate transparency based on distance
+    local transparency = self:CalculateTransparency(distance)
+    
+    -- Update box ESP
+    if objectData.Settings.BoxEnabled then
+        local boxCorners = self:GetBoxCorners(object)
+        
+        if boxCorners then
+            local topLeft = boxCorners.TopLeft
+            local bottomRight = boxCorners.BottomRight
+            local boxSize = bottomRight - topLeft
+            
+            objectData.Drawings.Box.Position = topLeft
+            objectData.Drawings.Box.Size = boxSize
+            objectData.Drawings.Box.Transparency = transparency * objectData.Settings.BoxTransparency
+            objectData.Drawings.Box.Visible = true
+            
+            if objectData.Settings.BoxOutline then
+                objectData.Drawings.BoxOutline.Position = topLeft
+                objectData.Drawings.BoxOutline.Size = boxSize
+                objectData.Drawings.BoxOutline.Transparency = transparency * objectData.Settings.BoxOutlineTransparency
+                objectData.Drawings.BoxOutline.Visible = true
+            else
+                objectData.Drawings.BoxOutline.Visible = false
+            end
+            
+            if objectData.Settings.BoxFilled then
+                objectData.Drawings.BoxFill.Position = topLeft
+                objectData.Drawings.BoxFill.Size = boxSize
+                objectData.Drawings.BoxFill.Transparency = transparency * objectData.Settings.BoxFilledTransparency
+                objectData.Drawings.BoxFill.Visible = true
+            else
+                objectData.Drawings.BoxFill.Visible = false
+            end
+        else
+            objectData.Drawings.Box.Visible = false
+            objectData.Drawings.BoxOutline.Visible = false
+            objectData.Drawings.BoxFill.Visible = false
+        end
+    else
+        objectData.Drawings.Box.Visible = false
+        objectData.Drawings.BoxOutline.Visible = false
+        objectData.Drawings.BoxFill.Visible = false
+    end
+    
+    -- Update name ESP
+    if objectData.Settings.NameEnabled then
+        local screenPos, onScreen, depth = self:WorldToScreen(position)
+        
+        if onScreen then
+            local displayName = object.Name
+            local textSize = self:CalculateTextSize(distance)
+            
+            objectData.Drawings.Name.Position = screenPos + objectData.Settings.NameOffset
+            objectData.Drawings.Name.Text = displayName
+            objectData.Drawings.Name.Transparency = transparency * objectData.Settings.NameTransparency
+            objectData.Drawings.Name.Size = textSize
+            objectData.Drawings.Name.Visible = true
+        else
+            objectData.Drawings.Name.Visible = false
+        end
+    else
+        objectData.Drawings.Name.Visible = false
+    end
+    
+    -- Update distance ESP
+    if objectData.Settings.DistanceEnabled then
+        local screenPos, onScreen, depth = self:WorldToScreen(position)
+        
+        if onScreen then
+            local distanceText = self:GetDistanceText(distance)
+            local textSize = self:CalculateTextSize(distance)
+            
+            objectData.Drawings.Distance.Position = screenPos + objectData.Settings.DistanceOffset
+            objectData.Drawings.Distance.Text = distanceText
+            objectData.Drawings.Distance.Transparency = transparency * objectData.Settings.DistanceTransparency
+            objectData.Drawings.Distance.Size = textSize
+            objectData.Drawings.Distance.Visible = true
+        else
+            objectData.Drawings.Distance.Visible = false
+        end
+    else
+        objectData.Drawings.Distance.Visible = false
+    end
+    
+    -- Update tracer ESP
+    if objectData.Settings.TracerEnabled then
+        local screenPos, onScreen, depth = self:WorldToScreen(position)
+        
+        if onScreen then
+            local from
+            
+            if objectData.Settings.TracerOrigin == "Bottom" then
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            elseif objectData.Settings.TracerOrigin == "Center" then
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            elseif objectData.Settings.TracerOrigin == "Mouse" then
+                from = UserInputService:GetMouseLocation()
+            end
+            
+            objectData.Drawings.Tracer.From = from
+            objectData.Drawings.Tracer.To = screenPos
+            objectData.Drawings.Tracer.Transparency = transparency * objectData.Settings.TracerTransparency
+            objectData.Drawings.Tracer.Visible = true
+            
+            if objectData.Settings.TracerOutline then
+                objectData.Drawings.TracerOutline.From = from
+                objectData.Drawings.TracerOutline.To = screenPos
+                objectData.Drawings.TracerOutline.Transparency = transparency * objectData.Settings.TracerOutlineTransparency
+                objectData.Drawings.TracerOutline.Visible = true
+            else
+                objectData.Drawings.TracerOutline.Visible = false
+            end
+        else
+            objectData.Drawings.Tracer.Visible = false
+            objectData.Drawings.TracerOutline.Visible = false
+        end
+    else
+        objectData.Drawings.Tracer.Visible = false
+        objectData.Drawings.TracerOutline.Visible = false
+    end
+end
+
+-- Direct Object ESP API
+local ObjectESP = {}
+local ObjectESPMeta = {}
+
+function ObjectESPMeta:__index(key)
+    if key == "Box" then
+        return function(self)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            local objectData = espLib:CreateObjectESP(object, {
+                BoxEnabled = true,
+                NameEnabled = false,
+                DistanceEnabled = false,
+                TracerEnabled = false
+            })
+            
+            return objectData
+        end
+    elseif key == "Name" then
+        return function(self)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            local objectData = espLib:CreateObjectESP(object, {
+                BoxEnabled = false,
+                NameEnabled = true,
+                DistanceEnabled = false,
+                TracerEnabled = false
+            })
+            
+            return objectData
+        end
+    elseif key == "Distance" then
+        return function(self)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            local objectData = espLib:CreateObjectESP(object, {
+                BoxEnabled = false,
+                NameEnabled = false,
+                DistanceEnabled = true,
+                TracerEnabled = false
+            })
+            
+            return objectData
+        end
+    elseif key == "Tracer" then
+        return function(self)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            local objectData = espLib:CreateObjectESP(object, {
+                BoxEnabled = false,
+                NameEnabled = false,
+                DistanceEnabled = false,
+                TracerEnabled = true
+            })
+            
+            return objectData
+        end
+    elseif key == "Full" then
+        return function(self)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            local objectData = espLib:CreateObjectESP(object, {
+                BoxEnabled = true,
+                NameEnabled = true,
+                DistanceEnabled = true,
+                TracerEnabled = true
+            })
+            
+            return objectData
+        end
+    elseif key == "Custom" then
+        return function(self, settings)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            local objectData = espLib:CreateObjectESP(object, settings)
+            
+            return objectData
+        end
+    elseif key == "Remove" then
+        return function(self)
+            local object = self
+            local espLib = getgenv().ESP or ESP
+            
+            espLib:RemoveObjectESP(object)
+        end
+    end
+end
+
+-- Main Functions
+function ESP:Init()
+    -- Create connections
+    self.Connections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
+        self:CreatePlayerESP(player)
+    end)
+    
+    self.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
+        self:RemovePlayerESP(player)
+    end)
+    
+    self.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+        if not self.Enabled then return end
+        
+        -- Update rainbow color
+        if self.Settings.RainbowMode then
+            self._rainbow = (self._rainbow + self.Settings.RainbowSpeed * 0.01) % 1
+        end
+        
+        -- Update player ESP
+        for player, playerData in pairs(self.Players) do
+            self:UpdatePlayerESP(player)
+        end
+        
+        -- Update object ESP
+        for objectId, objectData in pairs(self.Objects) do
+            if objectData.Object and objectData.Object.Parent then
+                self:UpdateObjectESP(objectData.Object)
+            else
+                self:RemoveObjectESP(objectData.Object)
+            end
+        end
+    end)
+    
+    self.Connections.InputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.KeyCode == self.Settings.ToggleKey then
+            self.Enabled = not self.Enabled
+            
+            if not self.Enabled then
+                for _, playerData in pairs(self.Players) do
+                    for _, drawing in pairs(playerData.Drawings) do
+                        if type(drawing) == "table" then
+                            if drawing.Line then
+                                drawing.Line.Visible = false
+                                drawing.Outline.Visible = false
+                            else
+                                for _, subDrawing in pairs(drawing) do
+                                    if type(subDrawing) == "table" then
+                                        subDrawing.Line.Visible = false
+                                        subDrawing.Outline.Visible = false
+                                    else
+                                        subDrawing.Visible = false
+                                    end
+                                end
+                            end
+                        else
+                            drawing.Visible = false
+                        end
+                    end
+                end
+                
+                for _, objectData in pairs(self.Objects) do
+                    for _, drawing in pairs(objectData.Drawings) do
+                        drawing.Visible = false
+                    end
+                end
+            end
+        elseif input.KeyCode == self.Settings.BoxToggleKey then
+            self.Settings.BoxEnabled = not self.Settings.BoxEnabled
+        elseif input.KeyCode == self.Settings.NameToggleKey then
+            self.Settings.NameEnabled = not self.Settings.NameEnabled
+        elseif input.KeyCode == self.Settings.DistanceToggleKey then
+            self.Settings.DistanceEnabled = not self.Settings.DistanceEnabled
+        elseif input.KeyCode == self.Settings.HealthToggleKey then
+            self.Settings.HealthEnabled = not self.Settings.HealthEnabled
+        elseif input.KeyCode == self.Settings.TracerToggleKey then
+            self.Settings.TracerEnabled = not self.Settings.TracerEnabled
+        elseif input.KeyCode == self.Settings.ChamsToggleKey then
+            self.Settings.ChamsEnabled = not self.Settings.ChamsEnabled
+        elseif input.KeyCode == self.Settings.SkeletonToggleKey then
+            self.Settings.SkeletonEnabled = not self.Settings.SkeletonEnabled
+        elseif input.KeyCode == self.Settings.HeadDotToggleKey then
+            self.Settings.HeadDotEnabled = not self.Settings.HeadDotEnabled
+        end
+    end)
+    
+    -- Initialize existing players
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            self:CreatePlayerESP(player)
+        end
+    end
+    
+    -- Apply metatable to all instances
+    setmetatable(game, {
+        __index = function(t, k)
+            if k == "ESP" then
+                return ObjectESP
+            end
+            return rawget(t, k)
+        end
+    })
+    
+    -- Apply metatable to all instances
+    local oldIndex = getrawmetatable(game).__index
+    setreadonly(getrawmetatable(game), false)
+    
+    getrawmetatable(game).__index = newcclosure(function(self, key)
+        if key == "ESP" then
+            return ObjectESP
+        end
+        return oldIndex(self, key)
+    end)
+    
+    setreadonly(getrawmetatable(game), true)
+    
+    -- Set metatable for ObjectESP
+    setmetatable(ObjectESP, ObjectESPMeta)
+    
+    return self
+end
+
+function ESP:Destroy()
+    -- Disconnect all connections
+    for _, connection in pairs(self.Connections) do
+        connection:Disconnect()
+    end
+    
+    -- Remove all drawings
+    self:ClearDrawings()
+    
+    -- Clear tables
+    self.Connections = {}
+    self.Players = {}
+    self.Objects = {}
+end
+
+-- API Functions
+function ESP:Toggle(enabled)
+    if enabled ~= nil then
+        self.Enabled = enabled
+    else
+        self.Enabled = not self.Enabled
+    end
+    
+    return self.Enabled
+end
+
+function ESP:ToggleBox(enabled)
+    if enabled ~= nil then
+        self.Settings.BoxEnabled = enabled
+    else
+        self.Settings.BoxEnabled = not self.Settings.BoxEnabled
+    end
+    
+    return self.Settings.BoxEnabled
+end
+
+function ESP:ToggleName(enabled)
+    if enabled ~= nil then
+        self.Settings.NameEnabled = enabled
+    else
+        self.Settings.NameEnabled = not self.Settings.NameEnabled
+    end
+    
+    return self.Settings.NameEnabled
+end
+
+function ESP:ToggleDistance(enabled)
+    if enabled ~= nil then
+        self.Settings.DistanceEnabled = enabled
+    else
+        self.Settings.DistanceEnabled = not self.Settings.DistanceEnabled
+    end
+    
+    return self.Settings.DistanceEnabled
+end
+
+function ESP:ToggleHealth(enabled)
+    if enabled ~= nil then
+        self.Settings.HealthEnabled = enabled
+    else
+        self.Settings.HealthEnabled = not self.Settings.HealthEnabled
+    end
+    
+    return self.Settings.HealthEnabled
+end
+
+function ESP:ToggleTracer(enabled)
+    if enabled ~= nil then
+        self.Settings.TracerEnabled = enabled
+    else
+        self.Settings.TracerEnabled = not self.Settings.TracerEnabled
+    end
+    
+    return self.Settings.TracerEnabled
+end
+
+function ESP:ToggleChams(enabled)
+    if enabled ~= nil then
+        self.Settings.ChamsEnabled = enabled
+    else
+        self.Settings.ChamsEnabled = not self.Settings.ChamsEnabled
+    end
+    
+    return self.Settings.ChamsEnabled
+end
+
+function ESP:ToggleSkeleton(enabled)
+    if enabled ~= nil then
+        self.Settings.SkeletonEnabled = enabled
+    else
+        self.Settings.SkeletonEnabled = not self.Settings.SkeletonEnabled
+    end
+    
+    return self.Settings.SkeletonEnabled
+end
+
+function ESP:ToggleHeadDot(enabled)
+    if enabled ~= nil then
+        self.Settings.HeadDotEnabled = enabled
+    else
+        self.Settings.HeadDotEnabled = not self.Settings.HeadDotEnabled
+    end
+    
+    return self.Settings.HeadDotEnabled
+end
+
+function ESP:ToggleTeamCheck(enabled)
+    if enabled ~= nil then
+        self.Settings.TeamCheck = enabled
+    else
+        self.Settings.TeamCheck = not self.Settings.TeamCheck
+    end
+    
+    return self.Settings.TeamCheck
+end
+
+function ESP:ToggleVisibilityCheck(enabled)
+    if enabled ~= nil then
+        self.Settings.VisibilityCheck = enabled
+    else
+        self.Settings.VisibilityCheck = not self.Settings.VisibilityCheck
+    end
+    
+    return self.Settings.VisibilityCheck
+end
+
+function ESP:SetColor(color)
+    self.Settings.BoxColor = color
+    self.Settings.NameColor = color
+    self.Settings.DistanceColor = color
+    self.Settings.TracerColor = color
+    self.Settings.SkeletonColor = color
+    
+    return color
+end
+
+function ESP:SetTeamColor(color)
+    self.Settings.TeamColor = color
+    
+    return color
+end
+
+function ESP:SetEnemyColor(color)
+    self.Settings.EnemyColor = color
+    
+    return color
+end
+
+function ESP:SetMaxDistance(distance)
+    self.Settings.MaxDistance = distance
+    
+    return distance
+end
+
+function ESP:AddToWhitelist(player)
+    if type(player) == "string" then
+        tableinsert(self.Settings.Whitelist, player)
+    elseif type(player) == "number" then
+        tableinsert(self.Settings.Whitelist, player)
+    elseif player:IsA("Player") then
+        tableinsert(self.Settings.Whitelist, player.Name)
+    end
+    
+    return self.Settings.Whitelist
+end
+
+function ESP:RemoveFromWhitelist(player)
+    if type(player) == "string" then
+        for i, name in ipairs(self.Settings.Whitelist) do
+            if name == player then
+                tableremove(self.Settings.Whitelist, i)
+                break
+            end
+        end
+    elseif type(player) == "number" then
+        for i, id in ipairs(self.Settings.Whitelist) do
+            if id == player then
+                tableremove(self.Settings.Whitelist, i)
+                break
+            end
+        end
+    elseif player:IsA("Player") then
+        for i, name in ipairs(self.Settings.Whitelist) do
+            if name == player.Name then
+                tableremove(self.Settings.Whitelist, i)
+                break
+            end
+        end
+    end
+    
+    return self.Settings.Whitelist
+end
+
+function ESP:AddToBlacklist(player)
+    if type(player) == "string" then
+        tableinsert(self.Settings.Blacklist, player)
+    elseif type(player) == "number" then
+        tableinsert(self.Settings.Blacklist, player)
+    elseif player:IsA("Player") then
+        tableinsert(self.Settings.Blacklist, player.Name)
+    end
+    
+    return self.Settings.Blacklist
+end
+
+function ESP:RemoveFromBlacklist(player)
+    if type(player) == "string" then
+        for i, name in ipairs(self.Settings.Blacklist) do
+            if name == player then
+                tableremove(self.Settings.Blacklist, i)
+                break
+            end
+        end
+    elseif type(player) == "number" then
+        for i, id in ipairs(self.Settings.Blacklist) do
+            if id == player then
+                tableremove(self.Settings.Blacklist, i)
+                break
+            end
+        end
+    elseif player:IsA("Player") then
+        for i, name in ipairs(self.Settings.Blacklist) do
+            if name == player.Name then
+                tableremove(self.Settings.Blacklist, i)
+                break
+            end
+        end
+    end
+    
+    return self.Settings.Blacklist
+end
+
+function ESP:ClearWhitelist()
+    self.Settings.Whitelist = {}
+    return self.Settings.Whitelist
+end
+
+function ESP:ClearBlacklist()
+    self.Settings.Blacklist = {}
+    return self.Settings.Blacklist
+end
+
+function ESP:SetRefreshRate(rate)
+    self.Settings.RefreshRate = rate
+    return rate
+end
+
+function ESP:SetBoxType(boxType)
+    self.Settings.BoxType = boxType
+    return boxType
+end
+
+function ESP:SetTracerOrigin(origin)
+    self.Settings.TracerOrigin = origin
+    return origin
+end
+
+function ESP:SetHealthBarType(healthType)
+    self.Settings.HealthType = healthType
+    return healthType
+end
+
+function ESP:ToggleRainbowMode(enabled)
+    if enabled ~= nil then
+        self.Settings.RainbowMode = enabled
+    else
+        self.Settings.RainbowMode = not self.Settings.RainbowMode
+    end
+    
+    return self.Settings.RainbowMode
+end
+
+function ESP:SetRainbowSpeed(speed)
+    self.Settings.RainbowSpeed = speed
+    return speed
+end
+
+function ESP:SetTransparency(transparency)
+    self.Settings.BoxTransparency = transparency
+    self.Settings.NameTransparency = transparency
+    self.Settings.DistanceTransparency = transparency
+    self.Settings.HealthTransparency = transparency
+    self.Settings.TracerTransparency = transparency
+    self.Settings.SkeletonTransparency = transparency
+    self.Settings.HeadDotTransparency = transparency
+    
+    return transparency
+end
+
+function ESP:SetThickness(thickness)
+    self.Settings.BoxThickness = thickness
+    self.Settings.TracerThickness = thickness
+    self.Settings.SkeletonThickness = thickness
+    self.Settings.HeadDotThickness = thickness
+    
+    return thickness
+end
+
+
+local espLib = ESP:Init()
