@@ -100,7 +100,9 @@ local ESP = {
         BoxOutlineTransparency = 0.5,
         BoxRoundedRadius = 5,
         BoxGradientColor = Color3fromRGB(0, 0, 255),
-        UsePartBoundingBox = false,
+        UsePartBoundingBox = true, -- Changed to true to better cover models
+        BoxPadding = Vector3new(0.5, 0.5, 0.5), -- Padding for box size
+        BoxPositionOffset = Vector3new(0, 0, 0), -- Offset for box position
         
         -- Name Tags
         NameEnabled = true,
@@ -149,6 +151,7 @@ local ESP = {
         TracerOutlineColor = Color3fromRGB(0, 0, 0),
         TracerOutlineTransparency = 0.5,
         TracerOrigin = "Bottom", -- "Bottom", "Center", "Mouse"
+        TracerOffset = Vector2new(0, 0), -- Offset from origin point
         
         -- Chams
         ChamsEnabled = true,
@@ -179,6 +182,7 @@ local ESP = {
         HeadDotOutline = true,
         HeadDotOutlineColor = Color3fromRGB(0, 0, 0),
         HeadDotOutlineTransparency = 0.5,
+        HeadDotOffset = Vector2new(0, 0), -- Offset from head position
         
         -- Tool ESP
         ToolEnabled = true,
@@ -212,6 +216,7 @@ local ESP = {
         AimPointOutline = true,
         AimPointOutlineColor = Color3fromRGB(0, 0, 0),
         AimPointOutlineTransparency = 0.5,
+        AimPointOffset = Vector2new(0, 0), -- Offset from aim point position
         
         -- Hitbox Markers
         HitboxEnabled = true,
@@ -391,21 +396,84 @@ function ESP:WorldToScreen(position)
     return Vector2new(screenPosition.X, screenPosition.Y), onScreen, screenPosition.Z
 end
 
-function ESP:GetBoxCorners(object)
-    local size, position
+-- Improved function to get model bounds
+function ESP:GetModelBounds(model)
+    if not model then return nil end
     
-    if object:IsA("Model") then
-        local hrp = FindFirstChild(object, "HumanoidRootPart") or object:FindFirstChildWhichIsA("BasePart")
-        if not hrp then return nil end
-        
-        size = self.Settings.UsePartBoundingBox and object:GetExtentsSize() or Vector3new(4, 5, 1)
-        position = hrp.Position
-    elseif object:IsA("BasePart") then
-        size = object.Size
-        position = object.Position
+    local parts = {}
+    local success, _ = pcall(function()
+        if model:IsA("Model") then
+            parts = model:GetDescendants()
+        else
+            parts = {model}
+        end
+    end)
+    
+    if not success then return nil end
+    
+    local minX, minY, minZ = mathhuge, mathhuge, mathhuge
+    local maxX, maxY, maxZ = -mathhuge, -mathhuge, -mathhuge
+    
+    local validParts = false
+    
+    for _, part in pairs(parts) do
+        if part:IsA("BasePart") then
+            validParts = true
+            
+            local cf = part.CFrame
+            local size = part.Size
+            local corners = {
+                cf * CFramenew(-size.X/2, -size.Y/2, -size.Z/2),
+                cf * CFramenew(-size.X/2, -size.Y/2, size.Z/2),
+                cf * CFramenew(-size.X/2, size.Y/2, -size.Z/2),
+                cf * CFramenew(-size.X/2, size.Y/2, size.Z/2),
+                cf * CFramenew(size.X/2, -size.Y/2, -size.Z/2),
+                cf * CFramenew(size.X/2, -size.Y/2, size.Z/2),
+                cf * CFramenew(size.X/2, size.Y/2, -size.Z/2),
+                cf * CFramenew(size.X/2, size.Y/2, size.Z/2)
+            }
+            
+            for _, corner in pairs(corners) do
+                local pos = corner.Position
+                
+                minX = mathmin(minX, pos.X)
+                minY = mathmin(minY, pos.Y)
+                minZ = mathmin(minZ, pos.Z)
+                
+                maxX = mathmax(maxX, pos.X)
+                maxY = mathmax(maxY, pos.Y)
+                maxZ = mathmax(maxZ, pos.Z)
+            end
+        end
+    end
+    
+    if not validParts then return nil end
+    
+    local size = Vector3new(maxX - minX, maxY - minY, maxZ - minZ)
+    local position = Vector3new(minX + size.X/2, minY + size.Y/2, minZ + size.Z/2)
+    
+    -- Apply padding and offset
+    size = size + self.Settings.BoxPadding
+    position = position + self.Settings.BoxPositionOffset
+    
+    return {
+        Size = size,
+        Position = position
+    }
+end
+
+function ESP:GetBoxCorners(object)
+    local bounds
+    
+    if object:IsA("Model") or object:IsA("BasePart") then
+        bounds = self:GetModelBounds(object)
+        if not bounds then return nil end
     else
         return nil
     end
+    
+    local size = bounds.Size
+    local position = bounds.Position
     
     local cf = CFramenew(position)
     
@@ -430,20 +498,17 @@ function ESP:GetBoxCorners(object)
 end
 
 function ESP:Get3DBoxCorners(object)
-    local size, position
+    local bounds
     
-    if object:IsA("Model") then
-        local hrp = FindFirstChild(object, "HumanoidRootPart") or object:FindFirstChildWhichIsA("BasePart")
-        if not hrp then return nil end
-        
-        size = self.Settings.UsePartBoundingBox and object:GetExtentsSize() or Vector3new(4, 5, 1)
-        position = hrp.Position
-    elseif object:IsA("BasePart") then
-        size = object.Size
-        position = object.Position
+    if object:IsA("Model") or object:IsA("BasePart") then
+        bounds = self:GetModelBounds(object)
+        if not bounds then return nil end
     else
         return nil
     end
+    
+    local size = bounds.Size
+    local position = bounds.Position
     
     local cf = CFramenew(position)
     
@@ -678,6 +743,9 @@ function ESP:CreatePlayerESP(player)
                 ZIndex = self.Settings.ZIndex
             }),
             HealthBarOutline = self:CreateDrawing("Square", {
+                Visible = false,
+                Color = self.Settings.HealthOutlineColor,
+                  {
                 Visible = false,
                 Color = self.Settings.HealthOutlineColor,
                 Thickness = 1,
@@ -1050,11 +1118,11 @@ function ESP:UpdatePlayerESP(player)
             local from
             
             if self.Settings.TracerOrigin == "Bottom" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) + self.Settings.TracerOffset
             elseif self.Settings.TracerOrigin == "Center" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + self.Settings.TracerOffset
             elseif self.Settings.TracerOrigin == "Mouse" then
-                from = UserInputService:GetMouseLocation()
+                from = UserInputService:GetMouseLocation() + self.Settings.TracerOffset
             end
             
             playerData.Drawings.Tracer.From = from
@@ -1085,13 +1153,13 @@ function ESP:UpdatePlayerESP(player)
         local headPos, onScreen, depth = self:WorldToScreen(head.Position)
         
         if onScreen then
-            playerData.Drawings.HeadDot.Position = headPos
+            playerData.Drawings.HeadDot.Position = headPos + self.Settings.HeadDotOffset
             playerData.Drawings.HeadDot.Color = color
             playerData.Drawings.HeadDot.Transparency = transparency * self.Settings.HeadDotTransparency
             playerData.Drawings.HeadDot.Visible = true
             
             if self.Settings.HeadDotOutline then
-                playerData.Drawings.HeadDotOutline.Position = headPos
+                playerData.Drawings.HeadDotOutline.Position = headPos + self.Settings.HeadDotOffset
                 playerData.Drawings.HeadDotOutline.Transparency = transparency * self.Settings.HeadDotOutlineTransparency
                 playerData.Drawings.HeadDotOutline.Visible = true
             else
@@ -1213,13 +1281,13 @@ function ESP:UpdatePlayerESP(player)
             local aimPos, onScreen, depth = self:WorldToScreen(aimPart.Position)
             
             if onScreen then
-                playerData.Drawings.AimPoint.Position = aimPos
+                playerData.Drawings.AimPoint.Position = aimPos + self.Settings.AimPointOffset
                 playerData.Drawings.AimPoint.Color = color
                 playerData.Drawings.AimPoint.Transparency = transparency * self.Settings.AimPointTransparency
                 playerData.Drawings.AimPoint.Visible = true
                 
                 if self.Settings.AimPointOutline then
-                    playerData.Drawings.AimPointOutline.Position = aimPos
+                    playerData.Drawings.AimPointOutline.Position = aimPos + self.Settings.AimPointOffset
                     playerData.Drawings.AimPointOutline.Transparency = transparency * self.Settings.AimPointOutlineTransparency
                     playerData.Drawings.AimPointOutline.Visible = true
                 else
@@ -1496,11 +1564,11 @@ function ESP:UpdateObjectESP(object)
             local from
             
             if objectData.Settings.TracerOrigin == "Bottom" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) + objectData.Settings.TracerOffset
             elseif objectData.Settings.TracerOrigin == "Center" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + objectData.Settings.TracerOffset
             elseif objectData.Settings.TracerOrigin == "Mouse" then
-                from = UserInputService:GetMouseLocation()
+                from = UserInputService:GetMouseLocation() + objectData.Settings.TracerOffset
             end
             
             objectData.Drawings.Tracer.From = from
@@ -1920,6 +1988,61 @@ function ESP:SetThickness(thickness)
     self.Settings.HeadDotThickness = thickness
     
     return thickness
+end
+
+-- Position customization functions
+function ESP:SetBoxPadding(padding)
+    if type(padding) == "number" then
+        self.Settings.BoxPadding = Vector3new(padding, padding, padding)
+    else
+        self.Settings.BoxPadding = padding
+    end
+    return self.Settings.BoxPadding
+end
+
+function ESP:SetBoxPositionOffset(offset)
+    self.Settings.BoxPositionOffset = offset
+    return self.Settings.BoxPositionOffset
+end
+
+function ESP:SetNameOffset(offset)
+    self.Settings.NameOffset = offset
+    return self.Settings.NameOffset
+end
+
+function ESP:SetDistanceOffset(offset)
+    self.Settings.DistanceOffset = offset
+    return self.Settings.DistanceOffset
+end
+
+function ESP:SetHealthOffset(offset)
+    self.Settings.HealthOffset = offset
+    return self.Settings.HealthOffset
+end
+
+function ESP:SetTracerOffset(offset)
+    self.Settings.TracerOffset = offset
+    return self.Settings.TracerOffset
+end
+
+function ESP:SetHeadDotOffset(offset)
+    self.Settings.HeadDotOffset = offset
+    return self.Settings.HeadDotOffset
+end
+
+function ESP:SetToolOffset(offset)
+    self.Settings.ToolOffset = offset
+    return self.Settings.ToolOffset
+end
+
+function ESP:SetStateOffset(offset)
+    self.Settings.StateOffset = offset
+    return self.Settings.StateOffset
+end
+
+function ESP:SetAimPointOffset(offset)
+    self.Settings.AimPointOffset = offset
+    return self.Settings.AimPointOffset
 end
 
 -- New API Functions for Direct Object Targeting
