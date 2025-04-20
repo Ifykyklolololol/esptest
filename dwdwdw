@@ -15,6 +15,7 @@
     - Toggle Keybinds, Fade ESP With Distance
     - Highlight Mode (Outline/Fill), Always On Top
     - Refresh Rate, ZIndex Control, Visibility Fade
+    - Simple positioning system (top, bottom, left, right)
     - And many more customization options
 ]]
 
@@ -102,7 +103,6 @@ local ESP = {
         BoxGradientColor = Color3fromRGB(0, 0, 255),
         UsePartBoundingBox = true, -- Changed to true to better cover models
         BoxPadding = Vector3new(0.5, 0.5, 0.5), -- Padding for box size
-        BoxPositionOffset = Vector3new(0, 0, 0), -- Offset for box position
         
         -- Name Tags
         NameEnabled = true,
@@ -113,7 +113,9 @@ local ESP = {
         NameOutlineTransparency = 0.5,
         NameSize = 14,
         NameFont = 2, -- Drawing.Fonts.UI
-        NameOffset = Vector2new(0, -15),
+        NamePosition = "top", -- top, bottom, left, right
+        NameYOffset = -15, -- Additional Y offset
+        NameXOffset = 0, -- Additional X offset
         NameBackground = true,
         NameBackgroundColor = Color3fromRGB(0, 0, 0),
         NameBackgroundTransparency = 0.5,
@@ -127,7 +129,9 @@ local ESP = {
         DistanceOutlineTransparency = 0.5,
         DistanceSize = 13,
         DistanceFont = 2, -- Drawing.Fonts.UI
-        DistanceOffset = Vector2new(0, 15),
+        DistancePosition = "bottom", -- top, bottom, left, right
+        DistanceYOffset = 15, -- Additional Y offset
+        DistanceXOffset = 0, -- Additional X offset
         DistanceTextSize = true, -- Adjust text size based on distance
         
         -- Health Bar
@@ -139,7 +143,9 @@ local ESP = {
         HealthOutlineColor = Color3fromRGB(0, 0, 0),
         HealthOutlineTransparency = 0.5,
         HealthThickness = 1,
-        HealthOffset = Vector2new(-5, 0),
+        HealthPosition = "left", -- left, right, top, bottom
+        HealthYOffset = 0, -- Additional Y offset
+        HealthXOffset = -5, -- Additional X offset
         HealthBarThickness = 2,
         
         -- Tracers
@@ -151,7 +157,8 @@ local ESP = {
         TracerOutlineColor = Color3fromRGB(0, 0, 0),
         TracerOutlineTransparency = 0.5,
         TracerOrigin = "Bottom", -- "Bottom", "Center", "Mouse"
-        TracerOffset = Vector2new(0, 0), -- Offset from origin point
+        TracerYOffset = 0, -- Additional Y offset
+        TracerXOffset = 0, -- Additional X offset
         
         -- Chams
         ChamsEnabled = true,
@@ -182,7 +189,8 @@ local ESP = {
         HeadDotOutline = true,
         HeadDotOutlineColor = Color3fromRGB(0, 0, 0),
         HeadDotOutlineTransparency = 0.5,
-        HeadDotOffset = Vector2new(0, 0), -- Offset from head position
+        HeadDotYOffset = 0, -- Additional Y offset
+        HeadDotXOffset = 0, -- Additional X offset
         
         -- Tool ESP
         ToolEnabled = true,
@@ -193,7 +201,9 @@ local ESP = {
         ToolOutlineTransparency = 0.5,
         ToolSize = 13,
         ToolFont = 2, -- Drawing.Fonts.UI
-        ToolOffset = Vector2new(0, 30),
+        ToolPosition = "bottom", -- top, bottom, left, right
+        ToolYOffset = 30, -- Additional Y offset
+        ToolXOffset = 0, -- Additional X offset
         
         -- State Display
         StateEnabled = true,
@@ -204,7 +214,9 @@ local ESP = {
         StateOutlineTransparency = 0.5,
         StateSize = 13,
         StateFont = 2, -- Drawing.Fonts.UI
-        StateOffset = Vector2new(0, 45),
+        StatePosition = "bottom", -- top, bottom, left, right
+        StateYOffset = 45, -- Additional Y offset
+        StateXOffset = 0, -- Additional X offset
         
         -- AimPoint
         AimPointEnabled = true,
@@ -216,7 +228,8 @@ local ESP = {
         AimPointOutline = true,
         AimPointOutlineColor = Color3fromRGB(0, 0, 0),
         AimPointOutlineTransparency = 0.5,
-        AimPointOffset = Vector2new(0, 0), -- Offset from aim point position
+        AimPointYOffset = 0, -- Additional Y offset
+        AimPointXOffset = 0, -- Additional X offset
         
         -- Hitbox Markers
         HitboxEnabled = true,
@@ -396,6 +409,33 @@ function ESP:WorldToScreen(position)
     return Vector2new(screenPosition.X, screenPosition.Y), onScreen, screenPosition.Z
 end
 
+-- Calculate position based on position type and box corners
+function ESP:CalculatePosition(positionType, boxCorners, basePosition, xOffset, yOffset)
+    local position = basePosition
+    
+    if boxCorners then
+        local topLeft = boxCorners.TopLeft
+        local bottomRight = boxCorners.BottomRight
+        local boxSize = bottomRight - topLeft
+        local boxCenter = topLeft + (boxSize / 2)
+        
+        if positionType == "top" then
+            position = Vector2new(boxCenter.X + xOffset, topLeft.Y + yOffset)
+        elseif positionType == "bottom" then
+            position = Vector2new(boxCenter.X + xOffset, bottomRight.Y + yOffset)
+        elseif positionType == "left" then
+            position = Vector2new(topLeft.X + xOffset, boxCenter.Y + yOffset)
+        elseif positionType == "right" then
+            position = Vector2new(bottomRight.X + xOffset, boxCenter.Y + yOffset)
+        end
+    else
+        -- If no box corners, just apply the offsets
+        position = Vector2new(position.X + xOffset, position.Y + yOffset)
+    end
+    
+    return position
+end
+
 -- Improved function to get model bounds
 function ESP:GetModelBounds(model)
     if not model then return nil end
@@ -452,9 +492,8 @@ function ESP:GetModelBounds(model)
     local size = Vector3new(maxX - minX, maxY - minY, maxZ - minZ)
     local position = Vector3new(minX + size.X/2, minY + size.Y/2, minZ + size.Z/2)
     
-    -- Apply padding and offset
+    -- Apply padding
     size = size + self.Settings.BoxPadding
-    position = position + self.Settings.BoxPositionOffset
     
     return {
         Size = size,
@@ -745,9 +784,6 @@ function ESP:CreatePlayerESP(player)
             HealthBarOutline = self:CreateDrawing("Square", {
                 Visible = false,
                 Color = self.Settings.HealthOutlineColor,
-                  {
-                Visible = false,
-                Color = self.Settings.HealthOutlineColor,
                 Thickness = 1,
                 Transparency = self.Settings.HealthOutlineTransparency,
                 Filled = false,
@@ -1004,12 +1040,20 @@ function ESP:UpdatePlayerESP(player)
     -- Update name ESP
     if self.Settings.NameEnabled then
         local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        local boxCorners = self:GetBoxCorners(character)
         
         if onScreen then
             local displayName = self.Settings.UseDisplayName and player.DisplayName or player.Name
             local textSize = self:CalculateTextSize(distance)
+            local namePosition = self:CalculatePosition(
+                self.Settings.NamePosition, 
+                boxCorners, 
+                headPos, 
+                self.Settings.NameXOffset, 
+                self.Settings.NameYOffset
+            )
             
-            playerData.Drawings.Name.Position = headPos + self.Settings.NameOffset
+            playerData.Drawings.Name.Position = namePosition
             playerData.Drawings.Name.Text = displayName
             playerData.Drawings.Name.Color = color
             playerData.Drawings.Name.Transparency = transparency * self.Settings.NameTransparency
@@ -1025,12 +1069,20 @@ function ESP:UpdatePlayerESP(player)
     -- Update distance ESP
     if self.Settings.DistanceEnabled then
         local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        local boxCorners = self:GetBoxCorners(character)
         
         if onScreen then
             local distanceText = self:GetDistanceText(distance)
             local textSize = self:CalculateTextSize(distance)
+            local distancePosition = self:CalculatePosition(
+                self.Settings.DistancePosition, 
+                boxCorners, 
+                headPos, 
+                self.Settings.DistanceXOffset, 
+                self.Settings.DistanceYOffset
+            )
             
-            playerData.Drawings.Distance.Position = headPos + self.Settings.DistanceOffset
+            playerData.Drawings.Distance.Position = distancePosition
             playerData.Drawings.Distance.Text = distanceText
             playerData.Drawings.Distance.Color = color
             playerData.Drawings.Distance.Transparency = transparency * self.Settings.DistanceTransparency
@@ -1062,32 +1114,82 @@ function ESP:UpdatePlayerESP(player)
             if self.Settings.HealthType == "Vertical" then
                 local barHeight = boxSize.Y * healthPercent
                 local barWidth = self.Settings.HealthBarThickness
+                local healthPosition
                 
-                playerData.Drawings.HealthBar.Position = Vector2new(
-                    topLeft.X + self.Settings.HealthOffset.X - barWidth,
-                    bottomRight.Y - barHeight
-                )
+                if self.Settings.HealthPosition == "left" then
+                    healthPosition = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset - barWidth,
+                        bottomRight.Y - barHeight + self.Settings.HealthYOffset
+                    )
+                    
+                    playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset - barWidth,
+                        topLeft.Y + self.Settings.HealthYOffset
+                    )
+                elseif self.Settings.HealthPosition == "right" then
+                    healthPosition = Vector2new(
+                        bottomRight.X + self.Settings.HealthXOffset,
+                        bottomRight.Y - barHeight + self.Settings.HealthYOffset
+                    )
+                    
+                    playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                        bottomRight.X + self.Settings.HealthXOffset,
+                        topLeft.Y + self.Settings.HealthYOffset
+                    )
+                else
+                    healthPosition = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset - barWidth,
+                        bottomRight.Y - barHeight + self.Settings.HealthYOffset
+                    )
+                    
+                    playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset - barWidth,
+                        topLeft.Y + self.Settings.HealthYOffset
+                    )
+                end
+                
+                playerData.Drawings.HealthBar.Position = healthPosition
                 playerData.Drawings.HealthBar.Size = Vector2new(barWidth, barHeight)
-                
-                playerData.Drawings.HealthBarOutline.Position = Vector2new(
-                    topLeft.X + self.Settings.HealthOffset.X - barWidth,
-                    topLeft.Y
-                )
                 playerData.Drawings.HealthBarOutline.Size = Vector2new(barWidth, boxSize.Y)
             else -- Horizontal
                 local barWidth = boxSize.X * healthPercent
                 local barHeight = self.Settings.HealthBarThickness
+                local healthPosition
                 
-                playerData.Drawings.HealthBar.Position = Vector2new(
-                    topLeft.X,
-                    bottomRight.Y + self.Settings.HealthOffset.Y
-                )
+                if self.Settings.HealthPosition == "top" then
+                    healthPosition = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset,
+                        topLeft.Y + self.Settings.HealthYOffset - barHeight
+                    )
+                    
+                    playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset,
+                        topLeft.Y + self.Settings.HealthYOffset - barHeight
+                    )
+                elseif self.Settings.HealthPosition == "bottom" then
+                    healthPosition = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset,
+                        bottomRight.Y + self.Settings.HealthYOffset
+                    )
+                    
+                    playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset,
+                        bottomRight.Y + self.Settings.HealthYOffset
+                    )
+                else
+                    healthPosition = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset,
+                        bottomRight.Y + self.Settings.HealthYOffset
+                    )
+                    
+                    playerData.Drawings.HealthBarOutline.Position = Vector2new(
+                        topLeft.X + self.Settings.HealthXOffset,
+                        bottomRight.Y + self.Settings.HealthYOffset
+                    )
+                end
+                
+                playerData.Drawings.HealthBar.Position = healthPosition
                 playerData.Drawings.HealthBar.Size = Vector2new(barWidth, barHeight)
-                
-                playerData.Drawings.HealthBarOutline.Position = Vector2new(
-                    topLeft.X,
-                    bottomRight.Y + self.Settings.HealthOffset.Y
-                )
                 playerData.Drawings.HealthBarOutline.Size = Vector2new(boxSize.X, barHeight)
             end
             
@@ -1118,11 +1220,11 @@ function ESP:UpdatePlayerESP(player)
             local from
             
             if self.Settings.TracerOrigin == "Bottom" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) + self.Settings.TracerOffset
+                from = Vector2new(Camera.ViewportSize.X / 2 + self.Settings.TracerXOffset, Camera.ViewportSize.Y + self.Settings.TracerYOffset)
             elseif self.Settings.TracerOrigin == "Center" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + self.Settings.TracerOffset
+                from = Vector2new(Camera.ViewportSize.X / 2 + self.Settings.TracerXOffset, Camera.ViewportSize.Y / 2 + self.Settings.TracerYOffset)
             elseif self.Settings.TracerOrigin == "Mouse" then
-                from = UserInputService:GetMouseLocation() + self.Settings.TracerOffset
+                from = UserInputService:GetMouseLocation() + Vector2new(self.Settings.TracerXOffset, self.Settings.TracerYOffset)
             end
             
             playerData.Drawings.Tracer.From = from
@@ -1153,13 +1255,18 @@ function ESP:UpdatePlayerESP(player)
         local headPos, onScreen, depth = self:WorldToScreen(head.Position)
         
         if onScreen then
-            playerData.Drawings.HeadDot.Position = headPos + self.Settings.HeadDotOffset
+            local headDotPosition = Vector2new(
+                headPos.X + self.Settings.HeadDotXOffset,
+                headPos.Y + self.Settings.HeadDotYOffset
+            )
+            
+            playerData.Drawings.HeadDot.Position = headDotPosition
             playerData.Drawings.HeadDot.Color = color
             playerData.Drawings.HeadDot.Transparency = transparency * self.Settings.HeadDotTransparency
             playerData.Drawings.HeadDot.Visible = true
             
             if self.Settings.HeadDotOutline then
-                playerData.Drawings.HeadDotOutline.Position = headPos + self.Settings.HeadDotOffset
+                playerData.Drawings.HeadDotOutline.Position = headDotPosition
                 playerData.Drawings.HeadDotOutline.Transparency = transparency * self.Settings.HeadDotOutlineTransparency
                 playerData.Drawings.HeadDotOutline.Visible = true
             else
@@ -1172,6 +1279,118 @@ function ESP:UpdatePlayerESP(player)
     else
         playerData.Drawings.HeadDot.Visible = false
         playerData.Drawings.HeadDotOutline.Visible = false
+    end
+    
+    -- Update tool ESP
+    if self.Settings.ToolEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        local boxCorners = self:GetBoxCorners(character)
+        
+        if onScreen then
+            local tool = character:FindFirstChildOfClass("Tool")
+            local toolName = tool and tool.Name or "None"
+            local toolPosition = self:CalculatePosition(
+                self.Settings.ToolPosition, 
+                boxCorners, 
+                headPos, 
+                self.Settings.ToolXOffset, 
+                self.Settings.ToolYOffset
+            )
+            
+            playerData.Drawings.Tool.Position = toolPosition
+            playerData.Drawings.Tool.Text = "Tool: " .. toolName
+            playerData.Drawings.Tool.Color = color
+            playerData.Drawings.Tool.Transparency = transparency * self.Settings.ToolTransparency
+            playerData.Drawings.Tool.Visible = true
+        else
+            playerData.Drawings.Tool.Visible = false
+        end
+    else
+        playerData.Drawings.Tool.Visible = false
+    end
+    
+    -- Update state ESP
+    if self.Settings.StateEnabled then
+        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
+        local boxCorners = self:GetBoxCorners(character)
+        
+        if onScreen then
+            local state = "Standing"
+            
+            if humanoid.Health <= 0 then
+                state = "Dead"
+            elseif humanoid.PlatformStand then
+                state = "Stunned"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Climbing then
+                state = "Climbing"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+                state = "Jumping"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+                state = "Falling"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Seated then
+                state = "Seated"
+            elseif humanoid:GetState() == Enum.HumanoidStateType.Swimming then
+                state = "Swimming"
+            elseif humanoid.MoveDirection.Magnitude > 0 then
+                state = "Moving"
+            end
+            
+            local statePosition = self:CalculatePosition(
+                self.Settings.StatePosition, 
+                boxCorners, 
+                headPos, 
+                self.Settings.StateXOffset, 
+                self.Settings.StateYOffset
+            )
+            
+            playerData.Drawings.State.Position = statePosition
+            playerData.Drawings.State.Text = "State: " .. state
+            playerData.Drawings.State.Color = color
+            playerData.Drawings.State.Transparency = transparency * self.Settings.StateTransparency
+            playerData.Drawings.State.Visible = true
+        else
+            playerData.Drawings.State.Visible = false
+        end
+    else
+        playerData.Drawings.State.Visible = false
+    end
+    
+    -- Update aim point ESP
+    if self.Settings.AimPointEnabled then
+        local aimPart = FindFirstChild(character, "Head") or FindFirstChild(character, "HumanoidRootPart")
+        
+        if aimPart then
+            local aimPos, onScreen, depth = self:WorldToScreen(aimPart.Position)
+            
+            if onScreen then
+                local aimPointPosition = Vector2new(
+                    aimPos.X + self.Settings.AimPointXOffset,
+                    aimPos.Y + self.Settings.AimPointYOffset
+                )
+                
+                playerData.Drawings.AimPoint.Position = aimPointPosition
+                playerData.Drawings.AimPoint.Color = color
+                playerData.Drawings.AimPoint.Transparency = transparency * self.Settings.AimPointTransparency
+                playerData.Drawings.AimPoint.Visible = true
+                
+                if self.Settings.AimPointOutline then
+                    playerData.Drawings.AimPointOutline.Position = aimPointPosition
+                    playerData.Drawings.AimPointOutline.Transparency = transparency * self.Settings.AimPointOutlineTransparency
+                    playerData.Drawings.AimPointOutline.Visible = true
+                else
+                    playerData.Drawings.AimPointOutline.Visible = false
+                end
+            else
+                playerData.Drawings.AimPoint.Visible = false
+                playerData.Drawings.AimPointOutline.Visible = false
+            end
+        else
+            playerData.Drawings.AimPoint.Visible = false
+            playerData.Drawings.AimPointOutline.Visible = false
+        end
+    else
+        playerData.Drawings.AimPoint.Visible = false
+        playerData.Drawings.AimPointOutline.Visible = false
     end
     
     -- Update skeleton ESP
@@ -1214,96 +1433,6 @@ function ESP:UpdatePlayerESP(player)
             playerData.Drawings.Skeleton[i].Line.Visible = false
             playerData.Drawings.Skeleton[i].Outline.Visible = false
         end
-    end
-    
-    -- Update tool ESP
-    if self.Settings.ToolEnabled then
-        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
-        
-        if onScreen then
-            local tool = character:FindFirstChildOfClass("Tool")
-            local toolName = tool and tool.Name or "None"
-            
-            playerData.Drawings.Tool.Position = headPos + self.Settings.ToolOffset
-            playerData.Drawings.Tool.Text = "Tool: " .. toolName
-            playerData.Drawings.Tool.Color = color
-            playerData.Drawings.Tool.Transparency = transparency * self.Settings.ToolTransparency
-            playerData.Drawings.Tool.Visible = true
-        else
-            playerData.Drawings.Tool.Visible = false
-        end
-    else
-        playerData.Drawings.Tool.Visible = false
-    end
-    
-    -- Update state ESP
-    if self.Settings.StateEnabled then
-        local headPos, onScreen, depth = self:WorldToScreen(head.Position)
-        
-        if onScreen then
-            local state = "Standing"
-            
-            if humanoid.Health <= 0 then
-                state = "Dead"
-            elseif humanoid.PlatformStand then
-                state = "Stunned"
-            elseif humanoid:GetState() == Enum.HumanoidStateType.Climbing then
-                state = "Climbing"
-            elseif humanoid:GetState() == Enum.HumanoidStateType.Jumping then
-                state = "Jumping"
-            elseif humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-                state = "Falling"
-            elseif humanoid:GetState() == Enum.HumanoidStateType.Seated then
-                state = "Seated"
-            elseif humanoid:GetState() == Enum.HumanoidStateType.Swimming then
-                state = "Swimming"
-            elseif humanoid.MoveDirection.Magnitude > 0 then
-                state = "Moving"
-            end
-            
-            playerData.Drawings.State.Position = headPos + self.Settings.StateOffset
-            playerData.Drawings.State.Text = "State: " .. state
-            playerData.Drawings.State.Color = color
-            playerData.Drawings.State.Transparency = transparency * self.Settings.StateTransparency
-            playerData.Drawings.State.Visible = true
-        else
-            playerData.Drawings.State.Visible = false
-        end
-    else
-        playerData.Drawings.State.Visible = false
-    end
-    
-    -- Update aim point ESP
-    if self.Settings.AimPointEnabled then
-        local aimPart = FindFirstChild(character, "Head") or FindFirstChild(character, "HumanoidRootPart")
-        
-        if aimPart then
-            local aimPos, onScreen, depth = self:WorldToScreen(aimPart.Position)
-            
-            if onScreen then
-                playerData.Drawings.AimPoint.Position = aimPos + self.Settings.AimPointOffset
-                playerData.Drawings.AimPoint.Color = color
-                playerData.Drawings.AimPoint.Transparency = transparency * self.Settings.AimPointTransparency
-                playerData.Drawings.AimPoint.Visible = true
-                
-                if self.Settings.AimPointOutline then
-                    playerData.Drawings.AimPointOutline.Position = aimPos + self.Settings.AimPointOffset
-                    playerData.Drawings.AimPointOutline.Transparency = transparency * self.Settings.AimPointOutlineTransparency
-                    playerData.Drawings.AimPointOutline.Visible = true
-                else
-                    playerData.Drawings.AimPointOutline.Visible = false
-                end
-            else
-                playerData.Drawings.AimPoint.Visible = false
-                playerData.Drawings.AimPointOutline.Visible = false
-            end
-        else
-            playerData.Drawings.AimPoint.Visible = false
-            playerData.Drawings.AimPointOutline.Visible = false
-        end
-    else
-        playerData.Drawings.AimPoint.Visible = false
-        playerData.Drawings.AimPointOutline.Visible = false
     end
     
     -- Update hitbox ESP
@@ -1519,12 +1648,20 @@ function ESP:UpdateObjectESP(object)
     -- Update name ESP
     if objectData.Settings.NameEnabled then
         local screenPos, onScreen, depth = self:WorldToScreen(position)
+        local boxCorners = self:GetBoxCorners(object)
         
         if onScreen then
             local displayName = object.Name
             local textSize = self:CalculateTextSize(distance)
+            local namePosition = self:CalculatePosition(
+                objectData.Settings.NamePosition, 
+                boxCorners, 
+                screenPos, 
+                objectData.Settings.NameXOffset, 
+                objectData.Settings.NameYOffset
+            )
             
-            objectData.Drawings.Name.Position = screenPos + objectData.Settings.NameOffset
+            objectData.Drawings.Name.Position = namePosition
             objectData.Drawings.Name.Text = displayName
             objectData.Drawings.Name.Transparency = transparency * objectData.Settings.NameTransparency
             objectData.Drawings.Name.Size = textSize
@@ -1539,12 +1676,20 @@ function ESP:UpdateObjectESP(object)
     -- Update distance ESP
     if objectData.Settings.DistanceEnabled then
         local screenPos, onScreen, depth = self:WorldToScreen(position)
+        local boxCorners = self:GetBoxCorners(object)
         
         if onScreen then
             local distanceText = self:GetDistanceText(distance)
             local textSize = self:CalculateTextSize(distance)
+            local distancePosition = self:CalculatePosition(
+                objectData.Settings.DistancePosition, 
+                boxCorners, 
+                screenPos, 
+                objectData.Settings.DistanceXOffset, 
+                objectData.Settings.DistanceYOffset
+            )
             
-            objectData.Drawings.Distance.Position = screenPos + objectData.Settings.DistanceOffset
+            objectData.Drawings.Distance.Position = distancePosition
             objectData.Drawings.Distance.Text = distanceText
             objectData.Drawings.Distance.Transparency = transparency * objectData.Settings.DistanceTransparency
             objectData.Drawings.Distance.Size = textSize
@@ -1564,11 +1709,11 @@ function ESP:UpdateObjectESP(object)
             local from
             
             if objectData.Settings.TracerOrigin == "Bottom" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) + objectData.Settings.TracerOffset
+                from = Vector2new(Camera.ViewportSize.X / 2 + objectData.Settings.TracerXOffset, Camera.ViewportSize.Y + objectData.Settings.TracerYOffset)
             elseif objectData.Settings.TracerOrigin == "Center" then
-                from = Vector2new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) + objectData.Settings.TracerOffset
+                from = Vector2new(Camera.ViewportSize.X / 2 + objectData.Settings.TracerXOffset, Camera.ViewportSize.Y / 2 + objectData.Settings.TracerYOffset)
             elseif objectData.Settings.TracerOrigin == "Mouse" then
-                from = UserInputService:GetMouseLocation() + objectData.Settings.TracerOffset
+                from = UserInputService:GetMouseLocation() + Vector2new(objectData.Settings.TracerXOffset, objectData.Settings.TracerYOffset)
             end
             
             objectData.Drawings.Tracer.From = from
@@ -2000,49 +2145,58 @@ function ESP:SetBoxPadding(padding)
     return self.Settings.BoxPadding
 end
 
-function ESP:SetBoxPositionOffset(offset)
-    self.Settings.BoxPositionOffset = offset
-    return self.Settings.BoxPositionOffset
+-- Position setting functions
+function ESP:SetNamePosition(position, xOffset, yOffset)
+    self.Settings.NamePosition = position
+    if xOffset then self.Settings.NameXOffset = xOffset end
+    if yOffset then self.Settings.NameYOffset = yOffset end
+    return position
 end
 
-function ESP:SetNameOffset(offset)
-    self.Settings.NameOffset = offset
-    return self.Settings.NameOffset
+function ESP:SetDistancePosition(position, xOffset, yOffset)
+    self.Settings.DistancePosition = position
+    if xOffset then self.Settings.DistanceXOffset = xOffset end
+    if yOffset then self.Settings.DistanceYOffset = yOffset end
+    return position
 end
 
-function ESP:SetDistanceOffset(offset)
-    self.Settings.DistanceOffset = offset
-    return self.Settings.DistanceOffset
+function ESP:SetHealthPosition(position, xOffset, yOffset)
+    self.Settings.HealthPosition = position
+    if xOffset then self.Settings.HealthXOffset = xOffset end
+    if yOffset then self.Settings.HealthYOffset = yOffset end
+    return position
 end
 
-function ESP:SetHealthOffset(offset)
-    self.Settings.HealthOffset = offset
-    return self.Settings.HealthOffset
+function ESP:SetToolPosition(position, xOffset, yOffset)
+    self.Settings.ToolPosition = position
+    if xOffset then self.Settings.ToolXOffset = xOffset end
+    if yOffset then self.Settings.ToolYOffset = yOffset end
+    return position
 end
 
-function ESP:SetTracerOffset(offset)
-    self.Settings.TracerOffset = offset
-    return self.Settings.TracerOffset
+function ESP:SetStatePosition(position, xOffset, yOffset)
+    self.Settings.StatePosition = position
+    if xOffset then self.Settings.StateXOffset = xOffset end
+    if yOffset then self.Settings.StateYOffset = yOffset end
+    return position
 end
 
-function ESP:SetHeadDotOffset(offset)
-    self.Settings.HeadDotOffset = offset
-    return self.Settings.HeadDotOffset
+function ESP:SetTracerOffset(xOffset, yOffset)
+    if xOffset then self.Settings.TracerXOffset = xOffset end
+    if yOffset then self.Settings.TracerYOffset = yOffset end
+    return Vector2new(self.Settings.TracerXOffset, self.Settings.TracerYOffset)
 end
 
-function ESP:SetToolOffset(offset)
-    self.Settings.ToolOffset = offset
-    return self.Settings.ToolOffset
+function ESP:SetHeadDotOffset(xOffset, yOffset)
+    if xOffset then self.Settings.HeadDotXOffset = xOffset end
+    if yOffset then self.Settings.HeadDotYOffset = yOffset end
+    return Vector2new(self.Settings.HeadDotXOffset, self.Settings.HeadDotYOffset)
 end
 
-function ESP:SetStateOffset(offset)
-    self.Settings.StateOffset = offset
-    return self.Settings.StateOffset
-end
-
-function ESP:SetAimPointOffset(offset)
-    self.Settings.AimPointOffset = offset
-    return self.Settings.AimPointOffset
+function ESP:SetAimPointOffset(xOffset, yOffset)
+    if xOffset then self.Settings.AimPointXOffset = xOffset end
+    if yOffset then self.Settings.AimPointYOffset = yOffset end
+    return Vector2new(self.Settings.AimPointXOffset, self.Settings.AimPointYOffset)
 end
 
 -- New API Functions for Direct Object Targeting
