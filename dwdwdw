@@ -49,8 +49,8 @@ local ESP = {
         RenderPriority = 1,
         FadeWithDistance = true,
         VisibilityFade = true,
-        SmoothTransitions = true,
-        TransitionSpeed = 0.2,
+        SmoothTransitions = false,
+        TransitionSpeed = 1,
         
         BoxEnabled = true,
         BoxType = "2D",
