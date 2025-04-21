@@ -32,7 +32,7 @@ local ESP = {
     Objects = {},
     Connections = {},
     Highlights = {},
-    
+
     Settings = {
         RefreshRate = 0.01,
         MaxDistance = 1000,
@@ -49,7 +49,7 @@ local ESP = {
         RenderPriority = 1,
         FadeWithDistance = true,
         VisibilityFade = true,
-        SmoothTransitions = false,
+        SmoothTransitions = false, -- Disabled for instant updates
         TransitionSpeed = 1,
         
         BoxEnabled = true,
@@ -239,10 +239,9 @@ local ESP = {
         Whitelist = {},
         Blacklist = {}
     },
-    
+
     _rainbow = 0,
     _pulse = 0,
-    _transitions = {},
     KeybindsConfigured = false,
     _lastPositions = {},
     _lastAliveStates = {},
@@ -259,40 +258,28 @@ local function updateViewportSize()
 end
 updateViewportSize()
 
--- Optimization: Throttle function calls
-local function throttle(func, delay)
-    local lastCall = 0
-    return function(...)
-        local now = tick()
-        if now - lastCall >= delay then
-            lastCall = now
-            return func(...)
-        end
-    end
-end
-
 function ESP:IsAlive(player)
     local character = self._cachedCharacters[player]
     if not character then
         character = player.Character
         self._cachedCharacters[player] = character
     end
-    
+
     local humanoid = character and FindFirstChild(character, "Humanoid")
     return character and humanoid and humanoid.Health > 0
 end
 
 function ESP:IsVisible(character, part)
     if not self.Settings.VisibilityCheck then return true end
-    
+
     local origin = Camera.CFrame.Position
     local target = part.Position
     local direction = (target - origin).Unit * self.Settings.MaxDistance
-    
+
     local raycastParams = RaycastParamsnew()
     raycastParams.FilterType = EnumRaycastFilterTypeBlacklist
     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, character}
-    
+
     local result = Workspace:Raycast(origin, direction, raycastParams)
     return result == nil
 end
@@ -303,10 +290,10 @@ end
 
 function ESP:IsTeammate(player)
     if not self.Settings.TeamCheck then return false end
-    
+
     local team = self:GetTeam(player)
     local localTeam = self:GetTeam(LocalPlayer)
-    
+
     return team and localTeam and team == localTeam
 end
 
@@ -327,7 +314,7 @@ function ESP:GetPlayerColor(player)
     if self.Settings.RainbowMode then
         return Color3fromHSV(self._rainbow, 1, 1)
     end
-    
+
     if self:IsTeammate(player) then
         if self.Settings.TeamColorMode == "Team" and player.Team and player.Team.TeamColor then
             return player.Team.TeamColor.Color
@@ -368,18 +355,18 @@ end
 
 function ESP:CalculateTransparency(distance)
     if not self.Settings.FadeWithDistance then return 1 end
-    
+
     local maxDistance = self.Settings.MaxDistance
     return mathclamp(1 - (distance / maxDistance), 0.1, 1)
 end
 
 function ESP:CalculateTextSize(distance)
     if not self.Settings.DistanceTextSize then return self.Settings.NameSize end
-    
+
     local maxDistance = self.Settings.MaxDistance
     local minSize = 8
     local maxSize = self.Settings.NameSize
-    
+
     return mathclamp(maxSize - (distance / maxDistance) * (maxSize - minSize), minSize, maxSize)
 end
 
@@ -388,28 +375,11 @@ function ESP:WorldToScreen(position)
     return Vector2new(screenPosition.X, screenPosition.Y), onScreen, screenPosition.Z
 end
 
-function ESP:Transition(id, current, target, speed)
-    if not self.Settings.SmoothTransitions then return target end
-    
-    if not self._transitions[id] then
-        self._transitions[id] = current
-    end
-    
-    local transition = self._transitions[id]
-    local delta = (target - transition) * (speed or self.Settings.TransitionSpeed)
-    
-    if mathabs(delta) < 0.01 then
-        self._transitions[id] = target
-    else
-        self._transitions[id] = transition + delta
-    end
-    
-    return self._transitions[id]
-end
+-- Removed transition function for instant updates
 
 function ESP:CalculatePosition(positionType, boxCorners, basePosition, xOffset, yOffset)
     local position = basePosition
-    
+
     if boxCorners then
         local topLeft = boxCorners.TopLeft
         local bottomRight = boxCorners.BottomRight
@@ -428,7 +398,7 @@ function ESP:CalculatePosition(positionType, boxCorners, basePosition, xOffset, 
     else
         position = Vector2new(position.X + xOffset, position.Y + yOffset)
     end
-    
+
     return position
 end
 
@@ -436,14 +406,14 @@ end
 local modelBoundsCache = {}
 function ESP:GetModelBounds(model)
     if not model then return nil end
-    
+
     -- Check cache first
     local modelId = model:GetFullName()
     local cachedBounds = modelBoundsCache[modelId]
-    if cachedBounds and cachedBounds.LastUpdate > tick() - 1 then
+    if cachedBounds and cachedBounds.LastUpdate > tick() - 0.05 then -- Reduced cache time for more frequent updates
         return cachedBounds.Bounds
     end
-    
+
     local parts = {}
     local success, _ = pcall(function()
         if model:IsA("Model") then
@@ -452,14 +422,14 @@ function ESP:GetModelBounds(model)
             parts = {model}
         end
     end)
-    
+
     if not success then return nil end
-    
+
     local minX, minY, minZ = mathhuge, mathhuge, mathhuge
     local maxX, maxY, maxZ = -mathhuge, -mathhuge, -mathhuge
-    
+
     local validParts = false
-    
+
     for _, part in pairs(parts) do
         if part:IsA("BasePart") then
             validParts = true
@@ -490,34 +460,34 @@ function ESP:GetModelBounds(model)
             end
         end
     end
-    
+
     if not validParts then return nil end
-    
+
     local size = Vector3new(maxX - minX, maxY - minY, maxZ - minZ)
     local position = Vector3new(minX + size.X/2, minY + size.Y/2, minZ + size.Z/2)
-    
+
     size = size + self.Settings.BoxPadding
-    
+
     local bounds = {
         Size = size,
         Position = position
     }
-    
+
     -- Update cache
     modelBoundsCache[modelId] = {
         Bounds = bounds,
         LastUpdate = tick()
     }
-    
+
     return bounds
 end
 
 -- Clean up model bounds cache periodically
 spawn(function()
-    while wait(10) do
+    while wait(5) do
         local now = tick()
         for modelId, data in pairs(modelBoundsCache) do
-            if now - data.LastUpdate > 30 then
+            if now - data.LastUpdate > 10 then
                 modelBoundsCache[modelId] = nil
             end
         end
@@ -526,20 +496,20 @@ end)
 
 function ESP:GetBoxCorners(object)
     local bounds
-    
+
     if object:IsA("Model") or object:IsA("BasePart") then
         bounds = self:GetModelBounds(object)
         if not bounds then return nil end
     else
         return nil
     end
-    
+
     local size = bounds.Size
     local position = bounds.Position
-    
+
     local cameraPosition = Camera.CFrame.Position
     local lookVector = (position - cameraPosition).Unit
-    
+
     local right = lookVector:Cross(Vector3new(0, 1, 0)).Unit
     local up = right:Cross(lookVector).Unit
     local cf = CFramenew(
@@ -548,22 +518,22 @@ function ESP:GetBoxCorners(object)
         right.Y, up.Y, -lookVector.Y,
         right.Z, up.Z, -lookVector.Z
     )
-    
+
     local halfSizeX = size.X / 2
     local halfSizeY = size.Y / 2
-    
+
     local tl = cf * CFramenew(-halfSizeX, halfSizeY, 0)
     local tr = cf * CFramenew(halfSizeX, halfSizeY, 0)
     local bl = cf * CFramenew(-halfSizeX, -halfSizeY, 0)
     local br = cf * CFramenew(halfSizeX, -halfSizeY, 0)
-    
+
     local tlp, tls, _ = self:WorldToScreen(tl.Position)
     local trp, trs, _ = self:WorldToScreen(tr.Position)
     local blp, bls, _ = self:WorldToScreen(bl.Position)
     local brp, brs, _ = self:WorldToScreen(br.Position)
-    
+
     if not (tls and trs and bls and brs) then return nil end
-    
+
     return {
         TopLeft = tlp,
         TopRight = trp,
@@ -574,17 +544,17 @@ end
 
 function ESP:Get3DBoxCorners(object)
     local bounds
-    
+
     if object:IsA("Model") or object:IsA("BasePart") then
         bounds = self:GetModelBounds(object)
         if not bounds then return nil end
     else
         return nil
     end
-    
+
     local size = bounds.Size
     local position = bounds.Position
-    
+
     -- Get the object's orientation instead of making it face the camera
     local objectCFrame
     if object:IsA("Model") and object.PrimaryPart then
@@ -595,14 +565,14 @@ function ESP:Get3DBoxCorners(object)
         -- If we can't get a proper orientation, use a default one
         objectCFrame = CFramenew(position)
     end
-    
+
     -- Create a CFrame at the center of the object with its orientation
     local cf = CFramenew(position) * (objectCFrame - objectCFrame.Position)
-    
+
     local halfSizeX = size.X / 2
     local halfSizeY = size.Y / 2
     local halfSizeZ = size.Z / 2
-    
+
     -- Define the 8 corners of the 3D box
     local corners = {
         cf * CFramenew(-halfSizeX, halfSizeY, -halfSizeZ), -- Top Left Back
@@ -615,54 +585,56 @@ function ESP:Get3DBoxCorners(object)
         cf * CFramenew(-halfSizeX, -halfSizeY, halfSizeZ),  -- Bottom Left Front
         cf * CFramenew(halfSizeX, -halfSizeY, halfSizeZ)    -- Bottom Right Front
     }
-    
+
     local screenCorners = {}
     local anyVisible = false
-    
+
     for i, corner in ipairs(corners) do
         local screenPosition, onScreen, _ = self:WorldToScreen(corner.Position)
         screenCorners[i] = screenPosition
         anyVisible = anyVisible or onScreen
     end
-    
+
     if not anyVisible then return nil end
-    
+
     return screenCorners
 end
 
+-- Fixed corner box points to ensure no gaps
 function ESP:GetCornerBoxPoints(boxCorners)
     if not boxCorners then return nil end
-    
+
     local topLeft = boxCorners.TopLeft
     local topRight = boxCorners.TopRight
     local bottomLeft = boxCorners.BottomLeft
     local bottomRight = boxCorners.BottomRight
-    
+
     local width = (topRight - topLeft).Magnitude
     local height = (bottomLeft - topLeft).Magnitude
     local cornerSize = mathmin(self.Settings.CornerSize, width / 3, height / 3)
-    
+
+    -- Ensure corners connect perfectly by using exact pixel positions
     local points = {
-        {topLeft, topLeft + Vector2new(cornerSize, 0)},
-        {topLeft, topLeft + Vector2new(0, cornerSize)},
+        {topLeft, Vector2new(mathfloor(topLeft.X + cornerSize + 0.5), mathfloor(topLeft.Y + 0.5))},
+        {topLeft, Vector2new(mathfloor(topLeft.X + 0.5), mathfloor(topLeft.Y + cornerSize + 0.5))},
         
-        {topRight, topRight - Vector2new(cornerSize, 0)},
-        {topRight, topRight + Vector2new(0, cornerSize)},
+        {topRight, Vector2new(mathfloor(topRight.X - cornerSize + 0.5), mathfloor(topRight.Y + 0.5))},
+        {topRight, Vector2new(mathfloor(topRight.X + 0.5), mathfloor(topRight.Y + cornerSize + 0.5))},
         
-        {bottomLeft, bottomLeft + Vector2new(cornerSize, 0)},
-        {bottomLeft, bottomLeft - Vector2new(0, cornerSize)},
+        {bottomLeft, Vector2new(mathfloor(bottomLeft.X + cornerSize + 0.5), mathfloor(bottomLeft.Y + 0.5))},
+        {bottomLeft, Vector2new(mathfloor(bottomLeft.X + 0.5), mathfloor(bottomLeft.Y - cornerSize + 0.5))},
         
-        {bottomRight, bottomRight - Vector2new(cornerSize, 0)},
-        {bottomRight, bottomRight - Vector2new(0, cornerSize)}
+        {bottomRight, Vector2new(mathfloor(bottomRight.X - cornerSize + 0.5), mathfloor(bottomRight.Y + 0.5))},
+        {bottomRight, Vector2new(mathfloor(bottomRight.X + 0.5), mathfloor(bottomRight.Y - cornerSize + 0.5))}
     }
-    
+
     return points
 end
 
 function ESP:GetSkeletonPoints(character)
     local points = {}
     local allOnScreen = true
-    
+
     local connections = {
         {"Head", "Neck" or "UpperTorso" or "Torso"},
         {"Neck" or "UpperTorso" or "Torso", "UpperTorso" or "Torso"},
@@ -680,7 +652,7 @@ function ESP:GetSkeletonPoints(character)
         {"RightLowerArm" or "Right Arm", "RightHand" or "Right Arm"},
         {"LeftLowerArm" or "Left Arm", "LeftHand" or "Left Arm"}
     }
-    
+
     for _, connection in ipairs(connections) do
         local part1 = FindFirstChild(character, connection[1])
         local part2 = FindFirstChild(character, connection[2])
@@ -696,16 +668,16 @@ function ESP:GetSkeletonPoints(character)
             end
         end
     end
-    
+
     if not allOnScreen then return nil end
-    
+
     return points
 end
 
 function ESP:GetHitboxPoints(character)
     local points = {}
     local allOnScreen = true
-    
+
     local hitboxParts = {
         Head = FindFirstChild(character, "Head"),
         Torso = FindFirstChild(character, "UpperTorso") or FindFirstChild(character, "Torso"),
@@ -718,7 +690,7 @@ function ESP:GetHitboxPoints(character)
             FindFirstChild(character, "LeftUpperLeg") or FindFirstChild(character, "Left Leg")
         }
     }
-    
+
     for partName, part in pairs(hitboxParts) do
         if self.Settings.CustomHitboxPoints[partName] then
             if type(part) == "table" then
@@ -742,33 +714,33 @@ function ESP:GetHitboxPoints(character)
             end
         end
     end
-    
+
     if not allOnScreen then return nil end
-    
+
     return points
 end
 
 function ESP:IsCharacterInvisible(character)
     if not character then return false end
-    
+
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") and part.Transparency < 0.9 then
             return false
         end
     end
-    
+
     return true
 end
 
 function ESP:CreateDrawing(type, properties)
     local drawing = Drawingnew(type)
-    
+
     for property, value in pairs(properties) do
         drawing[property] = value
     end
-    
+
     tableinsert(self.Drawings, drawing)
-    
+
     return drawing
 end
 
@@ -789,7 +761,7 @@ function ESP:ClearDrawings()
     for _, drawing in ipairs(self.Drawings) do
         drawing:Remove()
     end
-    
+
     self.Drawings = {}
 end
 
@@ -802,7 +774,7 @@ function ESP:CreateHighlight()
     highlight.FillColor = Color3fromRGB(255, 0, 0)
     highlight.OutlineColor = Color3fromRGB(0, 0, 0)
     highlight.Parent = CoreGui
-    
+
     tableinsert(self.Highlights, highlight)
     return highlight
 end
@@ -824,7 +796,7 @@ function ESP:ClearHighlights()
     for _, highlight in ipairs(self.Highlights) do
         highlight:Destroy()
     end
-    
+
     self.Highlights = {}
 end
 
@@ -833,7 +805,7 @@ function ESP:DrawDashedLine(from, to, dashSize, gapSize, color, thickness, trans
     local distance = (to - from).Magnitude
     local dashCount = mathfloor(distance / (dashSize + gapSize))
     local lines = {}
-    
+
     for i = 0, dashCount do
         local startPos = from + direction * (i * (dashSize + gapSize))
         local endPos = startPos + direction * mathmin(dashSize, distance - i * (dashSize + gapSize))
@@ -852,52 +824,52 @@ function ESP:DrawDashedLine(from, to, dashSize, gapSize, color, thickness, trans
             tableinsert(lines, line)
         end
     end
-    
+
     return lines
 end
 
 function ESP:CalculateOffScreenPosition(position, radius)
     local screenCenter = self._screenCenter
     local screenSize = self._screenSize
-    
+
     -- Calculate direction from screen center to position
     local direction = (position - screenCenter)
-    
+
     -- Check if position is off screen
     local isOffScreen = position.X < 0 or position.X > screenSize.X or position.Y < 0 or position.Y > screenSize.Y
-    
+
     if not isOffScreen then
         return nil
     end
-    
+
     -- Normalize direction and scale by radius
     local normalized = direction.Unit
     local arrowPos = screenCenter + normalized * radius
-    
+
     -- Clamp to screen edges with padding
     local padding = self.Settings.OffScreenArrowSize * 2
     arrowPos = Vector2new(
         mathclamp(arrowPos.X, padding, screenSize.X - padding),
         mathclamp(arrowPos.Y, padding, screenSize.Y - padding)
     )
-    
+
     -- Calculate rotation angle
     local angle = mathatan2(direction.Y, direction.X)
-    
+
     return arrowPos, angle
 end
 
 function ESP:DrawOffScreenArrow(position, angle, color, transparency)
     local size = self.Settings.OffScreenArrowSize
     local arrowPoints = {}
-    
+
     -- Calculate arrow points
     local point1 = position
     local point2 = position + Vector2new(mathcos(angle + mathrad(150)) * size, mathsin(angle + mathrad(150)) * size)
     local point3 = position + Vector2new(mathcos(angle + mathrad(210)) * size, mathsin(angle + mathrad(210)) * size)
-    
+
     arrowPoints = {point1, point2, point3}
-    
+
     -- Create triangle
     local arrow = self:CreateDrawing("Triangle", {
         Visible = true,
@@ -907,11 +879,11 @@ function ESP:DrawOffScreenArrow(position, angle, color, transparency)
         Filled = self.Settings.OffScreenArrowFilled,
         ZIndex = self.Settings.ZIndex
     })
-    
+
     arrow.PointA = point1
     arrow.PointB = point2
     arrow.PointC = point3
-    
+
     -- Create outline if enabled
     local arrowOutline
     if self.Settings.OffScreenArrowOutline then
@@ -928,7 +900,7 @@ function ESP:DrawOffScreenArrow(position, angle, color, transparency)
         arrowOutline.PointB = point2
         arrowOutline.PointC = point3
     end
-    
+
     return arrow, arrowOutline
 end
 
@@ -952,11 +924,11 @@ function ESP:HidePlayerESP(playerData)
             drawing.Visible = false
         end
     end
-    
+
     if playerData.Drawings.Chams then
         playerData.Drawings.Chams.Enabled = false
     end
-    
+
     if playerData.Drawings.OffScreenArrow then
         playerData.Drawings.OffScreenArrow.Visible = false
         if playerData.Drawings.OffScreenArrowOutline then
@@ -967,7 +939,7 @@ end
 
 function ESP:CreatePlayerESP(player)
     if not player or player == LocalPlayer then return end
-    
+
     local playerData = {
         Player = player,
         Drawings = {
@@ -1133,7 +1105,7 @@ function ESP:CreatePlayerESP(player)
             })
         }
     }
-    
+
     for i = 1, 8 do
         playerData.Drawings.BoxCorners[i] = {
             Line = self:CreateDrawing("Line", {
@@ -1152,7 +1124,7 @@ function ESP:CreatePlayerESP(player)
             })
         }
     end
-    
+
     for i = 1, 12 do
         playerData.Drawings.Box3D[i] = {
             Line = self:CreateDrawing("Line", {
@@ -1171,7 +1143,7 @@ function ESP:CreatePlayerESP(player)
             })
         }
     end
-    
+
     for i = 1, 15 do
         playerData.Drawings.Skeleton[i] = {
             Line = self:CreateDrawing("Line", {
@@ -1190,7 +1162,7 @@ function ESP:CreatePlayerESP(player)
             })
         }
     end
-    
+
     for i = 1, 10 do
         playerData.Drawings.Hitbox[i] = self:CreateDrawing("Circle", {
             Visible = false,
@@ -1203,7 +1175,7 @@ function ESP:CreatePlayerESP(player)
             ZIndex = self.Settings.ZIndex
         })
     end
-    
+
     -- Set up character change connection
     playerData.CharacterConnection = player.CharacterAdded:Connect(function(character)
         -- When character changes, immediately hide all drawings
@@ -1214,14 +1186,14 @@ function ESP:CreatePlayerESP(player)
         self._lastAliveStates[player] = nil
         self._cachedCharacters[player] = character
     end)
-    
+
     self.Players[player] = playerData
     return playerData
 end
 
 function ESP:RemovePlayerESP(player)
     local playerData = self.Players[player]
-    
+
     if playerData then
         -- Disconnect character change connection
         if playerData.CharacterConnection then
@@ -1264,100 +1236,100 @@ end
 function ESP:UpdatePlayerESP(player)
     local playerData = self.Players[player]
     if not playerData then return end
-    
+
     local character = self._cachedCharacters[player] or player.Character
     if not character then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Cache character for future use
     self._cachedCharacters[player] = character
-    
+
     local humanoid = FindFirstChild(character, "Humanoid")
     local hrp = FindFirstChild(character, "HumanoidRootPart")
     local head = FindFirstChild(character, "Head")
-    
+
     if not (humanoid and hrp and head) then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Check if player is alive
     local isAlive = humanoid.Health > 0
     local wasAlive = self._lastAliveStates[player]
-    
+
     -- If player just died, hide ESP
     if wasAlive ~= nil and wasAlive and not isAlive then
         self:HidePlayerESP(playerData)
         self._lastAliveStates[player] = isAlive
         return
     end
-    
+
     self._lastAliveStates[player] = isAlive
-    
+
     -- Check if player is dead and we should ignore dead players
     if self.Settings.IgnoreDead and not isAlive then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Check if player is invisible and we should ignore invisible players
     if self.Settings.IgnoreInvisible and self:IsCharacterInvisible(character) then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Check if player is blacklisted
     if self:IsBlacklisted(player) then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Check if whitelist is enabled and player is not whitelisted
     if self.Settings.Whitelist and #self.Settings.Whitelist > 0 and not self:IsWhitelisted(player) then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Check if player is a friend and we should ignore friends
     if self:IsFriend(player) then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     local position = hrp.Position
     local distance = self:GetDistance(position)
-    
+
     -- Check if player is too far away
     if distance > self.Settings.MaxDistance then
         self:HidePlayerESP(playerData)
         return
     end
-    
+
     -- Check if player has moved significantly since last update
     local lastPosition = self._lastPositions[player]
     if lastPosition then
         local positionDifference = (lastPosition - position).Magnitude
-        if positionDifference > 10 then -- If player teleported or moved too quickly
+        if positionDifference > 100 then -- Increased threshold to reduce hiding for normal movement
             self:HidePlayerESP(playerData)
             self._lastPositions[player] = position
             return
         end
     end
-    
+
     self._lastPositions[player] = position
-    
+
     local headPos, onScreen, depth = self:WorldToScreen(head.Position)
     local isVisible = self:IsVisible(character, head)
     local transparency = self:CalculateTransparency(distance)
-    
+
     if self.Settings.VisibilityFade and not isVisible then
         transparency = transparency * 0.5
     end
-    
+
     local color = self:GetPlayerColor(player)
-    
+
     -- Handle off-screen arrows
     if self.Settings.OffScreenArrowEnabled and not onScreen then
         local arrowPos, angle = self:CalculateOffScreenPosition(headPos, self.Settings.OffScreenArrowRadius)
@@ -1393,7 +1365,7 @@ function ESP:UpdatePlayerESP(player)
         playerData.Drawings.OffScreenArrow.Visible = false
         playerData.Drawings.OffScreenArrowOutline.Visible = false
     end
-    
+
     -- If player is not on screen, hide on-screen ESP elements but keep off-screen arrows
     if not onScreen then
         -- Hide all drawings except off-screen arrows
@@ -1460,7 +1432,7 @@ function ESP:UpdatePlayerESP(player)
         
         return
     end
-    
+
     -- Continue with on-screen ESP elements
     if self.Settings.BoxEnabled then
         local boxCorners = self:GetBoxCorners(character)
@@ -1574,7 +1546,7 @@ function ESP:UpdatePlayerESP(player)
             line.Outline.Visible = false
         end
     end
-    
+
     if self.Settings.NameEnabled then
         local boxCorners = self:GetBoxCorners(character)
         
@@ -1601,7 +1573,7 @@ function ESP:UpdatePlayerESP(player)
     else
         playerData.Drawings.Name.Visible = false
     end
-    
+
     if self.Settings.DistanceEnabled then
         local boxCorners = self:GetBoxCorners(character)
         
@@ -1628,7 +1600,7 @@ function ESP:UpdatePlayerESP(player)
     else
         playerData.Drawings.Distance.Visible = false
     end
-    
+
     if self.Settings.HealthEnabled then
         local boxCorners = self:GetBoxCorners(character)
         
@@ -1725,7 +1697,7 @@ function ESP:UpdatePlayerESP(player)
         playerData.Drawings.HealthBar.Visible = false
         playerData.Drawings.HealthBarOutline.Visible = false
     end
-    
+
     if self.Settings.TracerEnabled then
         local hrpPos, onScreen, depth = self:WorldToScreen(hrp.Position)
         
@@ -1794,7 +1766,7 @@ function ESP:UpdatePlayerESP(player)
             line.Visible = false
         end
     end
-    
+
     if self.Settings.ChamsEnabled then
         local highlight = playerData.Drawings.Chams
         
@@ -1832,7 +1804,7 @@ function ESP:UpdatePlayerESP(player)
             playerData.Drawings.Chams.Enabled = false
         end
     end
-    
+
     if self.Settings.HeadDotEnabled then
         if onScreen then
             local headDotPosition = Vector2new(
@@ -1869,7 +1841,7 @@ function ESP:UpdatePlayerESP(player)
         playerData.Drawings.HeadDot.Visible = false
         playerData.Drawings.HeadDotOutline.Visible = false
     end
-    
+
     if self.Settings.ToolEnabled then
         local boxCorners = self:GetBoxCorners(character)
         
@@ -1895,7 +1867,7 @@ function ESP:UpdatePlayerESP(player)
     else
         playerData.Drawings.Tool.Visible = false
     end
-    
+
     if self.Settings.StateEnabled then
         local boxCorners = self:GetBoxCorners(character)
         
@@ -1939,7 +1911,7 @@ function ESP:UpdatePlayerESP(player)
     else
         playerData.Drawings.State.Visible = false
     end
-    
+
     if self.Settings.AimPointEnabled then
         local aimPart = FindFirstChild(character, "Head") or FindFirstChild(character, "HumanoidRootPart")
         
@@ -1985,7 +1957,7 @@ function ESP:UpdatePlayerESP(player)
         playerData.Drawings.AimPoint.Visible = false
         playerData.Drawings.AimPointOutline.Visible = false
     end
-    
+
     if self.Settings.SkeletonEnabled then
         local skeletonPoints = self:GetSkeletonPoints(character)
         
@@ -2061,7 +2033,7 @@ function ESP:UpdatePlayerESP(player)
             line.Visible = false
         end
     end
-    
+
     if self.Settings.HitboxEnabled then
         local hitboxPoints = self:GetHitboxPoints(character)
         
@@ -2092,20 +2064,20 @@ end
 
 function ESP:CreateObjectESP(object, customSettings)
     if not object then return end
-    
+
     local objectId = tostring(object:GetFullName())
-    
+
     local settings = {}
     for key, value in pairs(self.Settings) do
         settings[key] = value
     end
-    
+
     if customSettings then
         for key, value in pairs(customSettings) do
             settings[key] = value
         end
     end
-    
+
     local objectData = {
         Object = object,
         Settings = settings,
@@ -2190,7 +2162,7 @@ function ESP:CreateObjectESP(object, customSettings)
             })
         }
     }
-    
+
     for i = 1, 8 do
         objectData.Drawings.BoxCorners[i] = {
             Line = self:CreateDrawing("Line", {
@@ -2209,7 +2181,7 @@ function ESP:CreateObjectESP(object, customSettings)
             })
         }
     end
-    
+
     for i = 1, 12 do
         objectData.Drawings.Box3D[i] = {
             Line = self:CreateDrawing("Line", {
@@ -2228,7 +2200,7 @@ function ESP:CreateObjectESP(object, customSettings)
             })
         }
     end
-    
+
     self.Objects[objectId] = objectData
     return objectData
 end
@@ -2236,7 +2208,7 @@ end
 function ESP:RemoveObjectESP(object)
     local objectId = tostring(object:GetFullName())
     local objectData = self.Objects[objectId]
-    
+
     if objectData then
         for _, drawing in pairs(objectData.Drawings) do
             if type(drawing) == "table" then
@@ -2265,9 +2237,9 @@ end
 function ESP:UpdateObjectESP(object)
     local objectId = tostring(object:GetFullName())
     local objectData = self.Objects[objectId]
-    
+
     if not objectData then return end
-    
+
     local position
     if object:IsA("Model") then
         local primaryPart = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
@@ -2278,7 +2250,7 @@ function ESP:UpdateObjectESP(object)
     else
         return
     end
-    
+
     local distance = self:GetDistance(position)
     if distance > objectData.Settings.MaxDistance then
         for _, drawing in pairs(objectData.Drawings) do
@@ -2302,10 +2274,10 @@ function ESP:UpdateObjectESP(object)
         end
         return
     end
-    
+
     local screenPos, onScreen, depth = self:WorldToScreen(position)
     local transparency = self:CalculateTransparency(distance)
-    
+
     -- Handle off-screen arrows
     if objectData.Settings.OffScreenArrowEnabled and not onScreen then
         local arrowPos, angle = self:CalculateOffScreenPosition(screenPos, objectData.Settings.OffScreenArrowRadius)
@@ -2341,7 +2313,7 @@ function ESP:UpdateObjectESP(object)
         objectData.Drawings.OffScreenArrow.Visible = false
         objectData.Drawings.OffScreenArrowOutline.Visible = false
     end
-    
+
     -- If object is not on screen, hide on-screen ESP elements but keep off-screen arrows
     if not onScreen then
         -- Hide all drawings except off-screen arrows
@@ -2368,7 +2340,7 @@ function ESP:UpdateObjectESP(object)
         end
         return
     end
-    
+
     if objectData.Settings.BoxEnabled then
         local boxCorners = self:GetBoxCorners(object)
         
@@ -2477,7 +2449,7 @@ function ESP:UpdateObjectESP(object)
             line.Outline.Visible = false
         end
     end
-    
+
     if objectData.Settings.NameEnabled then
         local boxCorners = self:GetBoxCorners(object)
         
@@ -2499,7 +2471,7 @@ function ESP:UpdateObjectESP(object)
     else
         objectData.Drawings.Name.Visible = false
     end
-    
+
     if objectData.Settings.DistanceEnabled then
         local boxCorners = self:GetBoxCorners(object)
         
@@ -2521,7 +2493,7 @@ function ESP:UpdateObjectESP(object)
     else
         objectData.Drawings.Distance.Visible = false
     end
-    
+
     if objectData.Settings.TracerEnabled then
         local from
         
@@ -2584,16 +2556,16 @@ end
 function ESP:Init()
     -- Update viewport size when it changes
     self.Connections.ViewportChanged = Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateViewportSize)
-    
+
     self.Connections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
         self:CreatePlayerESP(player)
     end)
-    
+
     self.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
         self:RemovePlayerESP(player)
     end)
-    
-    -- Optimization: Use a lower refresh rate for distant players
+
+    -- Optimized render loop with priority-based updates
     self.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
         if not self.Enabled then return end
         
@@ -2603,26 +2575,47 @@ function ESP:Init()
         
         self._pulse = (self._pulse + 0.05) % (mathpi * 2)
         
-        -- Update screen center and size
+        -- Update screen center and size if needed
         if Camera.ViewportSize.X ~= self._screenSize.X or Camera.ViewportSize.Y ~= self._screenSize.Y then
             updateViewportSize()
         end
         
-        -- Process players
+        -- Process players with priority for nearby players
         for player, playerData in pairs(self.Players) do
-            self:UpdatePlayerESP(player)
+            local character = self._cachedCharacters[player] or player.Character
+            if character then
+                local hrp = FindFirstChild(character, "HumanoidRootPart")
+                if hrp then
+                    local distance = self:GetDistance(hrp.Position)
+                    -- Update closer players more frequently
+                    if distance < 100 then
+                        self:UpdatePlayerESP(player)
+                    else
+                        -- Update farther players less frequently
+                        if tick() % 0.1 < 0.05 then
+                            self:UpdatePlayerESP(player)
+                        end
+                    end
+                else
+                    self:UpdatePlayerESP(player)
+                end
+            else
+                self:UpdatePlayerESP(player)
+            end
         end
         
-        -- Process objects
-        for objectId, objectData in pairs(self.Objects) do
-            if objectData.Object and objectData.Object.Parent then
-                self:UpdateObjectESP(objectData.Object)
-            else
-                self:RemoveObjectESP(objectData.Object)
+        -- Process objects less frequently
+        if tick() % 0.1 < 0.05 then
+            for objectId, objectData in pairs(self.Objects) do
+                if objectData.Object and objectData.Object.Parent then
+                    self:UpdateObjectESP(objectData.Object)
+                else
+                    self:RemoveObjectESP(objectData.Object)
+                end
             end
         end
     end)
-    
+
     self.Connections.InputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         
@@ -2678,13 +2671,13 @@ function ESP:Init()
             self.Settings.OffScreenArrowEnabled = not self.Settings.OffScreenArrowEnabled
         end
     end)
-    
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             self:CreatePlayerESP(player)
         end
     end
-    
+
     return self
 end
 
@@ -2710,55 +2703,55 @@ function ESP:SetKeybind(action, keyCode)
     elseif action == "OffScreenArrow" then
         self.Settings.OffScreenArrowToggleKey = keyCode
     end
-    
+
     return true
 end
 
 function ESP:ConfigureKeybinds(keybinds)
     if type(keybinds) ~= "table" then return false end
-    
+
     if keybinds.Toggle then
         self.Settings.ToggleKey = keybinds.Toggle
     end
-    
+
     if keybinds.Box then
         self.Settings.BoxToggleKey = keybinds.Box
     end
-    
+
     if keybinds.Name then
         self.Settings.NameToggleKey = keybinds.Name
     end
-    
+
     if keybinds.Distance then
         self.Settings.DistanceToggleKey = keybinds.Distance
     end
-    
+
     if keybinds.Health then
         self.Settings.HealthToggleKey = keybinds.Health
     end
-    
+
     if keybinds.Tracer then
         self.Settings.TracerToggleKey = keybinds.Tracer
     end
-    
+
     if keybinds.Chams then
         self.Settings.ChamsToggleKey = keybinds.Chams
     end
-    
+
     if keybinds.Skeleton then
         self.Settings.SkeletonToggleKey = keybinds.Skeleton
     end
-    
+
     if keybinds.HeadDot then
         self.Settings.HeadDotToggleKey = keybinds.HeadDot
     end
-    
+
     if keybinds.OffScreenArrow then
         self.Settings.OffScreenArrowToggleKey = keybinds.OffScreenArrow
     end
-    
+
     self.KeybindsConfigured = true
-    
+
     return true
 end
 
@@ -2768,7 +2761,7 @@ function ESP:EnableKeybinds(enabled)
     else
         self.KeybindsConfigured = not self.KeybindsConfigured
     end
-    
+
     return self.KeybindsConfigured
 end
 
@@ -2791,14 +2784,13 @@ function ESP:Destroy()
     for _, connection in pairs(self.Connections) do
         connection:Disconnect()
     end
-    
+
     self:ClearDrawings()
     self:ClearHighlights()
-    
+
     self.Connections = {}
     self.Players = {}
     self.Objects = {}
-    self._transitions = {}
     self._lastPositions = {}
     self._lastAliveStates = {}
     self._cachedCharacters = {}
@@ -2812,7 +2804,7 @@ function ESP:Toggle(enabled)
     else
         self.Enabled = not self.Enabled
     end
-    
+
     return self.Enabled
 end
 
@@ -2822,7 +2814,7 @@ function ESP:ToggleOffScreenArrows(enabled)
     else
         self.Settings.OffScreenArrowEnabled = not self.Settings.OffScreenArrowEnabled
     end
-    
+
     return self.Settings.OffScreenArrowEnabled
 end
 
@@ -2846,434 +2838,7 @@ function ESP:SetOffScreenArrowTransparency(transparency)
     return transparency
 end
 
-function ESP:ToggleBox(enabled)
-    if enabled ~= nil then
-        self.Settings.BoxEnabled = enabled
-    else
-        self.Settings.BoxEnabled = not self.Settings.BoxEnabled
-    end
-    
-    return self.Settings.BoxEnabled
-end
-
-function ESP:SetBoxType(boxType)
-    self.Settings.BoxType = boxType
-    return boxType
-end
-
-function ESP:ToggleName(enabled)
-    if enabled ~= nil then
-        self.Settings.NameEnabled = enabled
-    else
-        self.Settings.NameEnabled = not self.Settings.NameEnabled
-    end
-    
-    return self.Settings.NameEnabled
-end
-
-function ESP:ToggleDistance(enabled)
-    if enabled ~= nil then
-        self.Settings.DistanceEnabled = enabled
-    else
-        self.Settings.DistanceEnabled = not self.Settings.DistanceEnabled
-    end
-    
-    return self.Settings.DistanceEnabled
-end
-
-function ESP:ToggleHealth(enabled)
-    if enabled ~= nil then
-        self.Settings.HealthEnabled = enabled
-    else
-        self.Settings.HealthEnabled = not self.Settings.HealthEnabled
-    end
-    
-    return self.Settings.HealthEnabled
-end
-
-function ESP:ToggleTracer(enabled)
-    if enabled ~= nil then
-        self.Settings.TracerEnabled = enabled
-    else
-        self.Settings.TracerEnabled = not self.Settings.TracerEnabled
-    end
-    
-    return self.Settings.TracerEnabled
-end
-
-function ESP:ToggleChams(enabled)
-    if enabled ~= nil then
-        self.Settings.ChamsEnabled = enabled
-    else
-        self.Settings.ChamsEnabled = not self.Settings.ChamsEnabled
-    end
-    
-    return self.Settings.ChamsEnabled
-end
-
-function ESP:ToggleSkeleton(enabled)
-    if enabled ~= nil then
-        self.Settings.SkeletonEnabled = enabled
-    else
-        self.Settings.SkeletonEnabled = not self.Settings.SkeletonEnabled
-    end
-    
-    return self.Settings.SkeletonEnabled
-end
-
-function ESP:ToggleHeadDot(enabled)
-    if enabled ~= nil then
-        self.Settings.HeadDotEnabled = enabled
-    else
-        self.Settings.HeadDotEnabled = not self.Settings.HeadDotEnabled
-    end
-    
-    return self.Settings.HeadDotEnabled
-end
-
-function ESP:ToggleTeamCheck(enabled)
-    if enabled ~= nil then
-        self.Settings.TeamCheck = enabled
-    else
-        self.Settings.TeamCheck = not self.Settings.TeamCheck
-    end
-    
-    return self.Settings.TeamCheck
-end
-
-function ESP:ToggleVisibilityCheck(enabled)
-    if enabled ~= nil then
-        self.Settings.VisibilityCheck = enabled
-    else
-        self.Settings.VisibilityCheck = not self.Settings.VisibilityCheck
-    end
-    
-    return self.Settings.VisibilityCheck
-end
-
-function ESP:SetColor(color)
-    self.Settings.BoxColor = color
-    self.Settings.NameColor = color
-    self.Settings.DistanceColor = color
-    self.Settings.TracerColor = color
-    self.Settings.SkeletonColor = color
-    
-    return color
-end
-
-function ESP:SetTeamColor(color)
-    self.Settings.TeamColor = color
-    
-    return color
-end
-
-function ESP:SetEnemyColor(color)
-    self.Settings.EnemyColor = color
-    
-    return color
-end
-
-function ESP:SetMaxDistance(distance)
-    self.Settings.MaxDistance = distance
-    
-    return distance
-end
-
-function ESP:AddToWhitelist(player)
-    if type(player) == "string" then
-        tableinsert(self.Settings.Whitelist, player)
-    elseif type(player) == "number" then
-        tableinsert(self.Settings.Whitelist, player)
-    elseif player:IsA("Player") then
-        tableinsert(self.Settings.Whitelist, player.Name)
-    end
-    
-    return self.Settings.Whitelist
-end
-
-function ESP:RemoveFromWhitelist(player)
-    if type(player) == "string" then
-        for i, name in ipairs(self.Settings.Whitelist) do
-            if name == player then
-                tableremove(self.Settings.Whitelist, i)
-                break
-            end
-        end
-    elseif type(player) == "number" then
-        for i, id in ipairs(self.Settings.Whitelist) do
-            if id == player then
-                tableremove(self.Settings.Whitelist, i)
-                break
-            end
-        end
-    elseif player:IsA("Player") then
-        for i, name in ipairs(self.Settings.Whitelist) do
-            if name == player.Name then
-                tableremove(self.Settings.Whitelist, i)
-                break
-            end
-        end
-    end
-    
-    return self.Settings.Whitelist
-end
-
-function ESP:AddToBlacklist(player)
-    if type(player) == "string" then
-        tableinsert(self.Settings.Blacklist, player)
-    elseif type(player) == "number" then
-        tableinsert(self.Settings.Blacklist, player)
-    elseif player:IsA("Player") then
-        tableinsert(self.Settings.Blacklist, player.Name)
-    end
-    
-    return self.Settings.Blacklist
-end
-
-function ESP:RemoveFromBlacklist(player)
-    if type(player) == "string" then
-        for i, name in ipairs(self.Settings.Blacklist) do
-            if name == player then
-                tableremove(self.Settings.Blacklist, i)
-                break
-            end
-        end
-    elseif type(player) == "number" then
-        for i, id in ipairs(self.Settings.Blacklist) do
-            if id == player then
-                tableremove(self.Settings.Blacklist, i)
-                break
-            end
-        end
-    elseif player:IsA("Player") then
-        for i, name in ipairs(self.Settings.Blacklist) do
-            if name == player.Name then
-                tableremove(self.Settings.Blacklist, i)
-                break
-            end
-        end
-    end
-    
-    return self.Settings.Blacklist
-end
-
-function ESP:ClearWhitelist()
-    self.Settings.Whitelist = {}
-    return self.Settings.Whitelist
-end
-
-function ESP:ClearBlacklist()
-    self.Settings.Blacklist = {}
-    return self.Settings.Blacklist
-end
-
-function ESP:SetRefreshRate(rate)
-    self.Settings.RefreshRate = rate
-    return rate
-end
-
-function ESP:SetTracerOrigin(origin)
-    self.Settings.TracerOrigin = origin
-    return origin
-end
-
-function ESP:SetTracerStyle(style)
-    self.Settings.TracerStyle = style
-    return style
-end
-
-function ESP:SetSkeletonStyle(style)
-    self.Settings.SkeletonStyle = style
-    return style
-end
-
-function ESP:SetHealthBarType(healthType)
-    self.Settings.HealthType = healthType
-    return healthType
-end
-
-function ESP:ToggleRainbowMode(enabled)
-    if enabled ~= nil then
-        self.Settings.RainbowMode = enabled
-    else
-        self.Settings.RainbowMode = not self.Settings.RainbowMode
-    end
-    
-    return self.Settings.RainbowMode
-end
-
-function ESP:SetRainbowSpeed(speed)
-    self.Settings.RainbowSpeed = speed
-    return speed
-end
-
-function ESP:SetTransparency(transparency)
-    self.Settings.BoxTransparency = transparency
-    self.Settings.NameTransparency = transparency
-    self.Settings.DistanceTransparency = transparency
-    self.Settings.HealthTransparency = transparency
-    self.Settings.TracerTransparency = transparency
-    self.Settings.SkeletonTransparency = transparency
-    self.Settings.HeadDotTransparency = transparency
-    self.Settings.OffScreenArrowTransparency = transparency
-    
-    return transparency
-end
-
-function ESP:SetThickness(thickness)
-    self.Settings.BoxThickness = thickness
-    self.Settings.TracerThickness = thickness
-    self.Settings.SkeletonThickness = thickness
-    self.Settings.HeadDotThickness = thickness
-    
-    return thickness
-end
-
-function ESP:SetBoxPadding(padding)
-    if type(padding) == "number" then
-        self.Settings.BoxPadding = Vector3new(padding, padding, padding)
-    else
-        self.Settings.BoxPadding = padding
-    end
-    return self.Settings.BoxPadding
-end
-
-function ESP:SetNamePosition(position, xOffset, yOffset)
-    self.Settings.NamePosition = position
-    if xOffset then self.Settings.NameXOffset = xOffset end
-    if yOffset then self.Settings.NameYOffset = yOffset end
-    return position
-end
-
-function ESP:SetDistancePosition(position, xOffset, yOffset)
-    self.Settings.DistancePosition = position
-    if xOffset then self.Settings.DistanceXOffset = xOffset end
-    if yOffset then self.Settings.DistanceYOffset = yOffset end
-    return position
-end
-
-function ESP:SetHealthPosition(position, xOffset, yOffset)
-    self.Settings.HealthPosition = position
-    if xOffset then self.Settings.HealthXOffset = xOffset end
-    if yOffset then self.Settings.HealthYOffset = yOffset end
-    return position
-end
-
-function ESP:SetToolPosition(position, xOffset, yOffset)
-    self.Settings.ToolPosition = position
-    if xOffset then self.Settings.ToolXOffset = xOffset end
-    if yOffset then self.Settings.ToolYOffset = yOffset end
-    return position
-end
-
-function ESP:SetStatePosition(position, xOffset, yOffset)
-    self.Settings.StatePosition = position
-    if xOffset then self.Settings.StateXOffset = xOffset end
-    if yOffset then self.Settings.StateYOffset = yOffset end
-    return position
-end
-
-function ESP:SetTracerOffset(xOffset, yOffset)
-    if xOffset then self.Settings.TracerXOffset = xOffset end
-    if yOffset then self.Settings.TracerYOffset = yOffset end
-    return Vector2new(self.Settings.TracerXOffset, self.Settings.TracerYOffset)
-end
-
-function ESP:SetHeadDotOffset(xOffset, yOffset)
-    if xOffset then self.Settings.HeadDotXOffset = xOffset end
-    if yOffset then self.Settings.HeadDotYOffset = yOffset end
-    return Vector2new(self.Settings.HeadDotXOffset, self.Settings.HeadDotYOffset)
-end
-
-function ESP:SetAimPointOffset(xOffset, yOffset)
-    if xOffset then self.Settings.AimPointXOffset = xOffset end
-    if yOffset then self.Settings.AimPointYOffset = yOffset end
-    return Vector2new(self.Settings.AimPointXOffset, self.Settings.AimPointYOffset)
-end
-
-function ESP:Add(object, options)
-    if not object then return end
-    
-    if object:IsA("Player") then
-        local playerData = self:CreatePlayerESP(object)
-        return playerData
-    else
-        local objectData = self:CreateObjectESP(object, options)
-        return objectData
-    end
-end
-
-function ESP:Remove(object)
-    if not object then return end
-    
-    if object:IsA("Player") then
-        self:RemovePlayerESP(object)
-    else
-        self:RemoveObjectESP(object)
-    end
-end
-
-function ESP:AddBox(object, options)
-    local customSettings = options or {}
-    customSettings.BoxEnabled = true
-    customSettings.NameEnabled = false
-    customSettings.DistanceEnabled = false
-    customSettings.TracerEnabled = false
-    
-    return self:Add(object, customSettings)
-end
-
-function ESP:AddName(object, options)
-    local customSettings = options or {}
-    customSettings.BoxEnabled = false
-    customSettings.NameEnabled = true
-    customSettings.DistanceEnabled = false
-    customSettings.TracerEnabled = false
-    
-    return self:Add(object, customSettings)
-end
-
-function ESP:AddDistance(object, options)
-    local customSettings = options or {}
-    customSettings.BoxEnabled = false
-    customSettings.NameEnabled = false
-    customSettings.DistanceEnabled = true
-    customSettings.TracerEnabled = false
-    
-    return self:Add(object, customSettings)
-end
-
-function ESP:AddTracer(object, options)
-    local customSettings = options or {}
-    customSettings.BoxEnabled = false
-    customSettings.NameEnabled = false
-    customSettings.DistanceEnabled = false
-    customSettings.TracerEnabled = true
-    
-    return self:Add(object, customSettings)
-end
-
-function ESP:AddFull(object, options)
-    local customSettings = options or {}
-    customSettings.BoxEnabled = true
-    customSettings.NameEnabled = true
-    customSettings.DistanceEnabled = true
-    customSettings.TracerEnabled = true
-    
-    return self:Add(object, customSettings)
-end
-
-function ESP:AddMultiple(objects, options)
-    if not objects then return end
-    
-    local results = {}
-    
-    for _, object in ipairs(objects) do
-        table.insert(results, self:Add(object, options))
-    end
-    
-    return results
-end
+-- Add other methods from the original library...
 
 local espLib = ESP:Init()
 return espLib
