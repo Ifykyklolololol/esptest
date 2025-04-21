@@ -2433,6 +2433,10 @@ function ESP:UpdateObjectESP(object)
                     end
                 end
             end
+        else
+            objectData.Drawings.Box.Visible = false
+            objectData.Drawings.BoxOutline.Visible = false
+            objectData.Drawings.BoxFill.Visible = false
         end
     else
         objectData.Drawings.Box.Visible = false
